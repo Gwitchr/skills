@@ -12,6 +12,8 @@ Use this skill when creating, modifying, or reviewing any UI component (`*.tsx`)
 
 > **Precedence.** These rules apply only where they don't contradict the project's own enforced rules — ESLint / Biome / Prettier configs, `tsconfig`, `CLAUDE.md` / `AGENTS.md`, contributing guides, or stylelint. If a project rule conflicts, the project rule wins; defer to it and (if it makes sense) note the deviation in your PR description.
 
+> **Framework / runtime.** §1–§10 and §13 are **framework-agnostic** — they apply to any React + TypeScript + Tailwind setup, including a plain **Vite + React SPA** with no SSR, no RSC, and no router opinions. §11 (SSR-unsafe components), §12 (multilingual), and parts of §14 (RSC / App Router / Server Components / form actions / `next/*` performance helpers) are **optional** and clearly flagged — skip them on SPAs. The core idioms (atomic hierarchy, `classNames`, variant tokens, dictionaries, polymorphic `as`, slots, React 19 `ref` prop, hooks discipline) are universal.
+
 TRIGGER when: adding a new atom/molecule/organism, refactoring an existing `*.tsx`, wiring up icons, choosing between `as`/variant/size props, or reviewing component PRs.
 
 ---
@@ -392,18 +394,26 @@ Use these for marketing/illustration only. For action/status icons always use th
 
 ---
 
-## 11. Map / SSR-unsafe components (optional)
+## 11. SSR-unsafe components (optional)
 
-Skip if the project doesn't use Leaflet, MapLibre, or other libraries that touch `window` / `document` at module load.
+**Plain Vite SPAs and other SPA-only setups can skip this entire section** — there's no server-render pass, so `window` / `document` access at module load is harmless.
+
+For SSR / SSG / RSC frameworks, any component depending on libraries that touch `window` / `document` at module load (`leaflet` / `react-leaflet`, MapLibre, certain charting libs, etc.) must be loaded as a client-only chunk:
 
 ```tsx
-// Next.js example
-const Map = dynamic(() => import("components/molecules/Map.ui").then((m) => m.Map), {
+// Next.js
+const Map = dynamic(() => import("components/molecules/Map").then((m) => m.Map), {
   ssr: false
 });
+
+// TanStack Start
+const Map = lazy(() => import("components/molecules/Map").then((m) => ({ default: m.Map })));
+// ...render under <ClientOnly fallback={<MapSkeleton />}>{<Map />}</ClientOnly>
+
+// Plain React.lazy works too — just don't render the lazy component on the server pass.
 ```
 
-Any component depending on `leaflet` / `react-leaflet` / `window` must be loaded with `dynamic(..., { ssr: false })` (Next.js) or the equivalent client-only loader in your framework. Such components should also be excluded from any barrel that is imported on the server.
+Such components should also be excluded from any barrel that is imported on the server.
 
 ---
 
@@ -484,6 +494,8 @@ This example demonstrates: React 19 `ref` as a normal prop, native attribute ext
 ## 14. React 19 Patterns
 
 Author components against **React 19**. The React Compiler handles most memoization, the new ref/form/transition APIs replace several legacy patterns, and `forwardRef` is no longer needed for new components.
+
+> **Applies to any React 19 setup** — Vite SPA, Next.js (App or Pages Router), Remix, TanStack Start, etc. Subsections labeled *"App Router / RSC only"* are framework-specific; skip them on a plain Vite SPA. Everything else (compiler, refs, hooks, `use()`, accessibility, performance, TypeScript) is universal.
 
 ### Compiler-first mindset
 
@@ -568,13 +580,16 @@ function Title({ promise }: { promise: Promise<{ title: string }> }) {
 - Prefer the project's data-fetching layer for client data caching. `use()` is for promises produced by the server (RSC) or for one-shot client work that shouldn't go through a cache.
 - `use(SomeContext)` is the new way to read context conditionally; `useContext` still works for unconditional reads.
 
-### Actions, transitions, and form hooks (App Router / RSC)
+### Actions, transitions, and form hooks
 
-Skip if the project is not on Next.js App Router or another RSC-capable framework. In a `"use client"` form within an App Router tree, prefer the React 19 form/transition primitives over hand-rolled loading state.
+> **`useActionState` / `useFormStatus` / `useOptimistic` are usable in any React 19 environment** (Vite SPA included) — they don't strictly require RSC. They shine brightest with Server Actions, but in a plain SPA you can pass any `(state, formData) => Promise<state>` reducer and get the same pending/state ergonomics. **`useTransition`** is fully framework-agnostic.
 
-- **`useActionState`** — bind a `(state, formData) => newState` reducer to a `<form>`; React handles pending state and progressive enhancement.
+In a form, prefer the React 19 primitives over hand-rolled loading state.
+
+- **`useActionState`** — bind a `(state, formData) => newState` reducer to a `<form>`; React handles pending state and (in RSC frameworks) progressive enhancement.
   ```tsx
-  "use client";
+  // "use client" is needed only in RSC frameworks (Next.js App Router, etc.).
+  // Plain SPA (Vite, etc.): drop the directive — the file is already a client module.
   import { useActionState } from "react";
 
   export function Subscribe({ action }: { action: (s: State, fd: FormData) => Promise<State> }) {
@@ -590,7 +605,6 @@ Skip if the project is not on Next.js App Router or another RSC-capable framewor
   ```
 - **`useFormStatus`** — read the parent `<form>`'s pending state from a child without prop-drilling.
   ```tsx
-  "use client";
   import { useFormStatus } from "react-dom";
   export function SubmitButton({ children }: PropsWithChildren) {
     const { pending } = useFormStatus();
@@ -601,13 +615,13 @@ Skip if the project is not on Next.js App Router or another RSC-capable framewor
   ```tsx
   const [optimisticItems, addOptimistic] = useOptimistic(items, (state, next: Item) => [...state, next]);
   ```
-- **`useTransition`** — wrap async non-urgent updates: `startTransition(async () => { await save(); router.refresh(); })`.
+- **`useTransition`** — wrap async non-urgent updates: `startTransition(async () => { await save(); /* navigate or refresh */ })`.
 
-> If the project has both App Router and Pages Router (or equivalent split), apply the new form hooks **only** in the App Router tree. In Pages Router / non-RSC trees, drive submit buttons off the project's existing mutation state (e.g. `mutation.isPending`).
+> If the project has both an App Router and a Pages Router (or equivalent split), apply these hooks where the React 19 runtime is wired up. For non-React-19 trees, drive submit buttons off the project's existing mutation state (e.g. `mutation.isPending`).
 
-### Server vs Client Components (App Router)
+### Server vs Client Components — *Next.js App Router / RSC frameworks only*
 
-Skip if the project is not on Next.js App Router or another RSC framework.
+Skip entirely if the project is a plain SPA (Vite, etc.) or Pages-Router-only — every component is a Client Component by definition; the `"use client"` / `"use server"` directives don't apply.
 
 - Default App Router files are **Server Components** — no hooks, no event handlers, no browser APIs. They can `await` data and render directly.
 - Add `"use client"` only when the file uses hooks, event handlers, browser APIs, or imports a client-only lib.
@@ -616,14 +630,14 @@ Skip if the project is not on Next.js App Router or another RSC framework.
 
 ### Suspense & errors
 
-- Wrap `dynamic()` imports, `use()` promises, and data-loading subtrees in `<Suspense fallback={<SkeletonCard />} />` — never bare spinners.
+- Wrap lazy-loaded chunks (`React.lazy`, `next/dynamic`, framework equivalents), `use()` promises, and data-loading subtrees in `<Suspense fallback={<SkeletonCard />} />` — never bare spinners.
 - Wrap risky subtrees (map, payment iframe, third-party widgets) in an **error boundary** that reports to the project's error-tracking tool (Sentry, etc.). React 19's `onUncaughtError` / `onCaughtError` `createRoot` options can centralize reporting.
-- Don't throw promises manually — let `use()`, `dynamic`, or the data-fetching layer manage suspension.
+- Don't throw promises manually — let `use()`, the lazy loader, or the data-fetching layer manage suspension.
 
 ### Document metadata, stylesheets, preloading
 
-- React 19 hoists `<title>`, `<meta>`, `<link>`, and `<style>` rendered inside components into `<head>`. Use this for per-component metadata in App Router pages instead of dropping into `head.tsx` for one-offs.
-- For preconnects / preloads, use the `react-dom` resource APIs: `import { preconnect, preload, prefetchDNS } from "react-dom"`. Call from event handlers or Server Components — not in render of Client Components.
+- React 19 hoists `<title>`, `<meta>`, `<link>`, and `<style>` rendered inside components into `<head>` — use this for per-component metadata in any framework, including Vite SPAs.
+- For preconnects / preloads, use the `react-dom` resource APIs: `import { preconnect, preload, prefetchDNS } from "react-dom"`. Call from event handlers, or (in RSC frameworks) Server Components — not in render of Client Components.
 
 ### Accessibility (enforced)
 
@@ -637,9 +651,8 @@ Skip if the project is not on Next.js App Router or another RSC framework.
 
 ### Performance
 
-- Use the framework's optimized image component (`next/image`, etc.) — never raw `<img>` for content images.
-- Use the framework's dynamic-import / lazy-loading for trees that touch `window`, `document`, or heavy client-only libs.
-- Lazy-load below-the-fold organisms with a skeleton fallback.
+- For content images, use the framework's optimized image component if there is one (`next/image`, `unpic`, `@unpic/react`, etc.). On a plain Vite SPA without such a component, raw `<img>` is acceptable — pair it with `loading="lazy"`, explicit `width`/`height` to avoid CLS, and `decoding="async"`.
+- Lazy-load below-the-fold organisms and trees that touch `window`, `document`, or heavy client-only libs. Use the framework's dynamic-import helper if it has one (`next/dynamic`), otherwise plain `React.lazy(() => import("./Heavy"))` + `<Suspense>` works in any setup.
 - **Named-import** icons (and other tree-shakeable libs) — namespace imports defeat tree-shaking.
 - Trust the compiler for memoization. Profile before manual `memo`.
 - Avoid synchronous expensive work in render — wrap with `useDeferredValue` or move to a worker.
@@ -679,10 +692,10 @@ Skip if the project is not on Next.js App Router or another RSC framework.
 - ❌ `forwardRef` in **new** components — `ref` is a regular prop in React 19.
 - ❌ Hand-rolled `useMemo` / `useCallback` / `React.memo` without a profiler showing a regression — let the React Compiler do its job.
 - ❌ `useEffect` for derived values, event-handler work, or server data fetching.
-- ❌ React 19 form hooks (`useFormStatus` / `useActionState` / `useOptimistic`) outside an App Router / RSC `"use client"` context.
-- ❌ Adding `"use server"` to plain async data-layer functions — only App Router action files take that directive.
+- ❌ Wrapping form-hook usages with `"use client"` in non-RSC frameworks (plain Vite SPA, Pages Router, etc.) — the directive is meaningless there. `useFormStatus` / `useActionState` / `useOptimistic` work in any React 19 environment.
+- ❌ Adding `"use server"` to plain async data-layer functions — only RSC framework action files take that directive.
 - ❌ Class components, legacy lifecycle methods, `defaultProps` on function components, `propTypes`.
-- ❌ Reading `window` / `document` / `localStorage` at module scope or in render — guard with `useEffect`, callback ref, or a client-only dynamic import.
+- ❌ Reading `window` / `document` / `localStorage` at module scope or in render *in any code path that runs on the server* (SSR / SSG / RSC) — guard with `useEffect`, callback ref, or a client-only dynamic import. (Pure SPAs without SSR are fine to read these freely, but `useSyncExternalStore` is still cleaner for reactive sources like `matchMedia`.)
 - ❌ Array index as `key` for reorderable / filterable lists.
 - ❌ Hand-rolled ids (`Math.random()`, counters) for label/aria associations — use `useId()`.
 - ❌ Namespace imports of icons — always named imports.
