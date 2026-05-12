@@ -290,7 +290,7 @@ export const upsertContentString = createServerFn({ method: "POST" })
 
 `VALID_STRING_ROLES` is duplicated from the Prisma enum because Prisma's generated `StringRole` is a TS type, not a runtime value. Keep this array in sync with the enum and with the `StringRole` union in `types.ts` — three-place sync, flagged as the most common drift point in this stack.
 
-> **A note on validation.** This skill leans on Zod for input validation. If your project hand-rolls validation with predicates (`isRecord`, custom `parseInput` helpers), the contract is the same — validate input before the handler runs and throw a typed error on bad input. Zod is the preferred default in 2026.
+> **A note on validation.** This skill leans on Zod for input validation. If your project hand-rolls validation with predicates (`isRecord`, custom `parseInput` helpers), the contract is the same — validate input before the handler runs and throw a typed error on bad input. Zod is the preferred default; hand-rolled validation is acceptable for projects that already use it consistently.
 
 ---
 

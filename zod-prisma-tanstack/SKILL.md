@@ -9,6 +9,8 @@ Use this skill when writing, reviewing, or modifying code in the data layer of a
 
 TRIGGER when: creating new domain features, adding API endpoints, writing hooks/queries, modifying the Prisma schema, adding Zod validation, reviewing data-layer code, or the user asks to "set up the data layer / wire Prisma + Zod + React Query."
 
+> **Stack assumed.** Prisma v5+, Zod v4 (v3 noted as legacy where APIs diverge), TanStack Query v5, TypeScript with `strict` + `noUncheckedIndexedAccess`. Framework-agnostic — Next.js App/Pages Router, TanStack Start (REST or RPC), Remix, Hono, and Express are all supported via the four §7 flavors. Database-agnostic except where called out (the `aggregateRaw`/`$geoNear` patterns in §1 are MongoDB-only; substitute `$queryRaw` + a SQL full-text index or PostGIS for SQL databases). Expanded prerequisites and bootstrap steps in §Prerequisites and §0.
+
 > **Notation.** Wherever a path appears as `<server>/actions/`, `<types>/`, `<schemas>/`, `<queries>/`, `<hooks>/`, `<utils>/`, or `<constants>/`, treat it as a placeholder. Resolve to the project's existing structure (`src/server`, `app/lib`, `~/server`, `@/lib`, etc.). The **shape** of each layer is what matters; exact paths can vary.
 
 > **Precedence.** These rules apply only where they don't contradict the project's own enforced rules — ESLint / Biome / Prettier configs, `tsconfig`, `CLAUDE.md` / `AGENTS.md`, contributing guides, or framework conventions. If a project rule conflicts, the project rule wins; defer to it and (if it makes sense) note the deviation in your PR description.
@@ -19,11 +21,11 @@ TRIGGER when: creating new domain features, adding API endpoints, writing hooks/
 
 This skill assumes the project has, or is willing to add:
 
-- **Prisma** v5+ (any supported database — Postgres, MySQL, SQLite, MongoDB, etc.). The `aggregateRaw` and `$geoNear` examples in §1 are MongoDB-only; substitute the equivalent raw-query API for other databases (`$queryRaw`, full-text indexes, PostGIS, etc.).
-- **Zod** v3 *or* v4. Examples in this doc are written so they work on both — where APIs diverge (notably `nativeEnum` → `enum`), the section flags both. **Pin a version** in your project and stick to it; mixing v3 and v4 is unsupported.
+- **Prisma** v5+ (any supported database — Postgres, MySQL, SQLite, MongoDB, etc.). The `aggregateRaw` and `$geoNear` examples in §1 are MongoDB-only; substitute the equivalent raw-query API for other databases.
+- **Zod v4** (preferred). Zod v3 is noted in a single footnote where APIs diverge (notably `z.enum()` vs `z.nativeEnum()` for enum-like objects) — treat v3 as legacy. **Pin a version** in your project; mixing v3 and v4 is unsupported.
 - **TanStack Query v5** (`@tanstack/react-query`) — the conventions rely on `queryOptions()` / `infiniteQueryOptions()`, `useSuspenseQuery`, and the v5 cache-key model.
 - **TypeScript** with `strict` and `noUncheckedIndexedAccess` recommended.
-- A full-stack React framework that exposes some form of typed server entry point. The patterns are **framework-agnostic**; §7 shows concrete examples for:
+- A full-stack React framework that exposes some form of typed server entry point. §7 shows concrete examples for:
   - **Next.js App Router** (`<app>/api/**/route.ts`)
   - **TanStack Start** API routes (`createAPIFileRoute`) **and** Server Functions (`createServerFn`) — the latter collapses the fetcher + REST-route layers into typed RPC.
   - **Next.js Pages Router** (`<pages>/api/*.ts`) — legacy / maintenance mode.
@@ -982,7 +984,7 @@ When adding a new domain (e.g., `Widget`):
 - ❌ Skipping `.validator(schema.parse)` on a TanStack Start server function — the validator is the equivalent of `.parse(req.body)` in an API route.
 - ❌ Non-composable query keys — always build from the domain `xKeys.all` prefix.
 - ❌ Bundling queries into a single `xQueries` method-bag object — use the `xKeys` object + standalone `*Options` functions split.
-- ❌ Putting `select` / `throwOnError` / `staleTime` inside the `*Options` function — those belong at the call site so each consumer can choose its own projection.
+- ❌ Putting **per-consumer** concerns (`select`, `throwOnError`, one-off overrides) inside the `*Options` function — those belong at the call site. Domain-wide cache policy (`staleTime`, `gcTime`, `retry`) is fine in the `*Options` function; see §4 "Where do `staleTime` / `gcTime` / `retry` live?".
 - ❌ Missing `enabled` flag on queries that depend on a possibly-null ID.
 - ❌ Missing `invalidateQueries` after a successful mutation.
 - ❌ Skipping Zod validation on `req.body` / `req.json()` — never trust raw input.

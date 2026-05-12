@@ -35,7 +35,7 @@ For the **content / i18n** layer that consumes `requireAuthenticatedUser` and ad
 
 ## Core principles
 
-These are the **ten rules that span more than one topic file**. Topic-specific rules live in their respective files; this list is the cross-cutting contract.
+These are the **twelve rules that span more than one topic file**. Topic-specific rules live in their respective files; this list is the cross-cutting contract.
 
 ### 1. One singleton per SDK; AWS clients are factories with shared IAM fallback
 

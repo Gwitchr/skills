@@ -193,13 +193,14 @@ Two patterns to copy:
 
 ## Transactional vs marketing — the FROM split
 
-| Concern              | Transactional                                          | Marketing                                                  |
-| -------------------- | ------------------------------------------------------ | ---------------------------------------------------------- |
-| Env var              | `SES_FROM_EMAIL` (required)                            | `SES_MARKETING_FROM_EMAIL` (optional)                      |
-| Subdomain pattern    | `notify.<your-host>` (transactional reputation)        | `news.<your-host>` (reputation-isolated)                   |
-| Volume               | Per-user actions (1 per sign-in / invite / confirm)    | Bulk (newsletter sends)                                    |
-| Spam-complaint risk  | Low                                                    | High (unsubscribe-driven complaints)                       |
-| Consequence of mixing | Spam complaints from the marketing list will tank deliverability of magic-link emails — users won't get sign-in links | n/a |
+| Concern              | Transactional                                       | Marketing                                       |
+| -------------------- | --------------------------------------------------- | ----------------------------------------------- |
+| Env var              | `SES_FROM_EMAIL` (required)                         | `SES_MARKETING_FROM_EMAIL` (optional)           |
+| Subdomain pattern    | `notify.<your-host>` (transactional reputation)     | `news.<your-host>` (reputation-isolated)        |
+| Volume               | Per-user actions (1 per sign-in / invite / confirm) | Bulk (newsletter sends)                         |
+| Spam-complaint risk  | Low                                                 | High (unsubscribe-driven complaints)            |
+
+**Why the split matters:** spam complaints from the marketing list damage the **sender domain's reputation** with major mailbox providers. If marketing and transactional share that reputation, a bad campaign tanks deliverability of magic-link emails — users stop getting sign-in links. Reputation isolation via separate subdomains keeps the two failure modes independent.
 
 `sendMarketingEmail` should **fall back to `SES_FROM_EMAIL`** if `SES_MARKETING_FROM_EMAIL` is unset (common in dev). In production the marketing var **must** be set; verify before any newsletter campaign.
 

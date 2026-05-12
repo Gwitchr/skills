@@ -17,7 +17,7 @@ The `betterAuth()` instance, its plugins, additional fields, database hooks, and
 }
 ```
 
-`better-auth` and `@better-auth/prisma-adapter` versions track each other — bump them together. Zod v4 is assumed for `z.email()` / `z.url()` standalone schemas; on Zod v3 substitute `z.string().email()` / `z.string().url()`.
+`better-auth` and `@better-auth/prisma-adapter` versions track each other — bump them together. Zod v4 is assumed throughout this skill — examples use the standalone `z.email()` / `z.url()` validators. (Legacy footnote: on Zod v3 substitute `z.string().email()` / `z.string().url()`. Treat v3 as legacy and migrate when convenient.)
 
 ---
 
@@ -191,10 +191,6 @@ If you don't use Vitest, replace the second branch of `isTestMode()` with whatev
 ### Why AWS credentials are optional
 
 In production, the IAM role on the instance grants S3/SES access. Setting `AWS_ACCESS_KEY_ID` would shadow the IAM credentials and create a dual-source failure mode (rotation drift, leaked-key blast radius). Local dev sets them explicitly. Both `getSesClient()` and `getS3Client()` apply the fallback identically — see [email-ses.md](email-ses.md) and [storage-s3.md](storage-s3.md).
-
-### Zod v4 vs v3
-
-The schema uses Zod v4's standalone `z.email()` and `z.url()`. On Zod v3, substitute `z.string().email()` and `z.string().url()`. Don't mix — pick one form per file.
 
 ---
 
