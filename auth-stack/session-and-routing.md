@@ -27,25 +27,25 @@ export const Route = createFileRoute("/api/auth/$")({
 
 ### Why both GET and POST
 
-Better Auth uses GET for verify-callbacks (the link in the magic-link email is a GET) and POST for everything else (sending the link, signing out, refreshing the session). Both must forward to `auth.handler` — omitting either breaks half the flow.
+Better Auth uses GET for verify-callbacks (the link in the magic-link email is a GET) and POST for everything else (sending the link, signing out, refreshing the session). Both must forward to `auth.handler`, omitting either breaks half the flow.
 
 ### Why the file is `$.ts`, not `$path.tsx`
 
-The `$` filename is TanStack Start's convention for a true wildcard segment that matches anything after `/api/auth/`. It pairs with `basePath: "/api/auth"` in the auth config (see [auth-config.md](auth-config.md)) — the two are a contract.
+The `$` filename is TanStack Start's convention for a true wildcard segment that matches anything after `/api/auth/`. It pairs with `basePath: "/api/auth"` in the auth config (see [auth-config.md](auth-config.md)), the two are a contract.
 
 ### Other frameworks
 
 Same shape, different signatures:
 
-- **Next.js App Router** — `<app>/api/auth/[...all]/route.ts` exporting `GET` and `POST` named functions that each call `auth.handler(request)`.
-- **Hono** — `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`.
-- **Remix** — `loader` and `action` in `<routes>/api/auth/$.tsx`, both calling `auth.handler(request)`.
+- **Next.js App Router**, `<app>/api/auth/[...all]/route.ts` exporting `GET` and `POST` named functions that each call `auth.handler(request)`.
+- **Hono**, `app.all("/api/auth/*", (c) => auth.handler(c.req.raw))`.
+- **Remix**, `loader` and `action` in `<routes>/api/auth/$.tsx`, both calling `auth.handler(request)`.
 
 ---
 
 ## Reading the session
 
-### `getAuthSession` — the snapshot used by the UI
+### `getAuthSession`, the snapshot used by the UI
 
 ```ts
 // <server>/lib/auth/session.ts
@@ -84,11 +84,11 @@ export const getAuthSession = createServerFn({ method: "GET" }).handler(async ()
 
 Three patterns to copy:
 
-1. **Try/catch around `auth.api.getSession`.** The function can throw if the cookie is malformed or expired — treat that as "not authenticated", not as a 500.
+1. **Try/catch around `auth.api.getSession`.** The function can throw if the cookie is malformed or expired, treat that as "not authenticated", not as a 500.
 2. **Type-narrow every `additionalFields` value.** `session.user.role` is typed as `unknown`; the `isRole` predicate is the only safe way to read it. Never `as`-cast.
-3. **Return a flat, narrow shape.** Pick the fields the UI needs; never spread the whole `session.user` — it includes fields you don't want on the wire.
+3. **Return a flat, narrow shape.** Pick the fields the UI needs; never spread the whole `session.user`, it includes fields you don't want on the wire.
 
-### `requireAuthenticatedUser` — the gate for mutating server fns
+### `requireAuthenticatedUser`, the gate for mutating server fns
 
 ```ts
 // <server>/lib/auth/require.ts
@@ -123,17 +123,17 @@ export async function requireAuthenticatedRequestUser(request: Request) {
 }
 ```
 
-The DB roundtrip is intentional — `session.user.role` is `unknown` at the boundary, and a fresh DB read confirms the user still exists and gets the canonical role.
+The DB roundtrip is intentional, `session.user.role` is `unknown` at the boundary, and a fresh DB read confirms the user still exists and gets the canonical role.
 
 ### When to call which
 
 | Function                          | Use in                                           | Throws on missing session?      |
 | --------------------------------- | ------------------------------------------------ | ------------------------------- |
-| `getAuthSession`                  | Loaders, route component data fetch              | No — returns `{ user: null }`   |
-| `requireAuthenticatedUser`        | `createServerFn` handlers that mutate            | Yes — `Error("Unauthorized.")`  |
+| `getAuthSession`                  | Loaders, route component data fetch              | No, returns `{ user: null }`   |
+| `requireAuthenticatedUser`        | `createServerFn` handlers that mutate            | Yes, `Error("Unauthorized.")`  |
 | `requireAuthenticatedRequestUser` | API-route handlers (where `request` is in scope) | Yes                             |
 
-**Never** call `auth.api.getSession()` directly from a feature module. Always go through one of the three above — they're the single source of truth for "what is the session right now".
+**Never** call `auth.api.getSession()` directly from a feature module. Always go through one of the three above, they're the single source of truth for "what is the session right now".
 
 ---
 
@@ -155,7 +155,7 @@ The predicate is colocated with the union so `includes` and the type both update
 
 ### Hard rule
 
-**Never** write `session.user.role as Role`. Better Auth's additional fields are typed as `unknown` for a reason — the adapter doesn't validate them at the boundary, and Better Auth's types may evolve. If you need a new narrowed read, **write the predicate**.
+**Never** write `session.user.role as Role`. Better Auth's additional fields are typed as `unknown` for a reason, the adapter doesn't validate them at the boundary, and Better Auth's types may evolve. If you need a new narrowed read, **write the predicate**.
 
 ---
 
@@ -169,7 +169,7 @@ Define the magic-link endpoint in your project's API-endpoints constants file (s
 AUTH_MAGIC_LINK: () => "/api/auth/sign-in/magic-link"
 ```
 
-The magic-link plugin handles `POST /api/auth/sign-in/magic-link` (request the link) and `GET /api/auth/magic-link/verify?token=…` (callback target — Better Auth handles redirect to `callbackURL` automatically).
+The magic-link plugin handles `POST /api/auth/sign-in/magic-link` (request the link) and `GET /api/auth/magic-link/verify?token=…` (callback target, Better Auth handles redirect to `callbackURL` automatically).
 
 ### Request shape
 
@@ -188,10 +188,10 @@ Required pieces:
 
 | Piece                      | Why                                                                                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `credentials: "include"`   | Better Auth sets the session cookie on the verify-callback response — without this, the cookie never lands on the browser.          |
+| `credentials: "include"`   | Better Auth sets the session cookie on the verify-callback response, without this, the cookie never lands on the browser.          |
 | Lowercased, trimmed `email` | The DB stores lowercase; mismatches trigger duplicate users.                                                                        |
 | Sanitized `callbackURL`    | Open-redirect protection (see below).                                                                                                |
-| Optional `name`            | Used by the sign-up page only — Better Auth picks it up on first verification because `name` is a built-in field on `User`.         |
+| Optional `name`            | Used by the sign-up page only, Better Auth picks it up on first verification because `name` is a built-in field on `User`.         |
 
 ### Email-exists branching
 
@@ -226,7 +226,7 @@ if (!result.exists) {
 // …else proceed to send the magic link
 ```
 
-If your project has invitations or other "introduced but not yet a User" states, extend the check to consider those too — the goal is "land the user on the right page (sign-in vs sign-up) without a confusing error."
+If your project has invitations or other "introduced but not yet a User" states, extend the check to consider those too, the goal is "land the user on the right page (sign-in vs sign-up) without a confusing error."
 
 ---
 
@@ -280,7 +280,7 @@ Three classes of attack/footgun it blocks:
 ### Hard rules
 
 - **Always** call this on user-supplied `redirect` (URL search params, form fields). Never trust the raw value.
-- **Never** broaden `DEFAULT_AUTH_REDIRECT_PATH` to anything that requires permissions to reach — it should be a safe authenticated landing that any signed-in user can hit.
+- **Never** broaden `DEFAULT_AUTH_REDIRECT_PATH` to anything that requires permissions to reach, it should be a safe authenticated landing that any signed-in user can hit.
 - **Never** add new error keys to whatever URL strips them; add them to `AUTH_ERROR_QUERY_KEYS` instead.
 
 ---
@@ -305,7 +305,7 @@ export const updateSomething = createServerFn({ method: "POST" })
     const result = await prisma.someModel.update({
       where:  { id: data.id, ownerId: user.id },
       data:   { value: data.value },
-      select: { id: true } // narrow shape — never leak full rows
+      select: { id: true } // narrow shape, never leak full rows
     });
 
     return { result };
@@ -314,6 +314,6 @@ export const updateSomething = createServerFn({ method: "POST" })
 
 Three rules this template encodes:
 
-1. **`validator(inputSchema.parse)` runs before the handler** — Zod throws a typed error with a user-facing message on bad input. (If you're on a project that hand-rolls validation with `isRecord` predicates, the contract is the same — just run validation before the handler.)
-2. **Auth check is `requireAuthenticatedUser()`** — never duplicate `auth.api.getSession()`.
-3. **Return narrow shapes** (`select: { … }`) — don't leak whole rows to the client.
+1. **`validator(inputSchema.parse)` runs before the handler**, Zod throws a typed error with a user-facing message on bad input. (If you're on a project that hand-rolls validation with `isRecord` predicates, the contract is the same, just run validation before the handler.)
+2. **Auth check is `requireAuthenticatedUser()`**, never duplicate `auth.api.getSession()`.
+3. **Return narrow shapes** (`select: { … }`), don't leak whole rows to the client.

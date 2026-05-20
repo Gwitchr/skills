@@ -36,11 +36,11 @@ function getSesClient() {
 }
 ```
 
-The credential pattern is identical to `getS3Client()` (see [storage-s3.md](storage-s3.md)) and is the canonical IAM-fallback shape — see SKILL.md §"Core principles" rule 2 for the rationale.
+The credential pattern is identical to `getS3Client()` (see [storage-s3.md](storage-s3.md)) and is the canonical IAM-fallback shape, see SKILL.md §"Core principles" rule 2 for the rationale.
 
 ### Why a factory, not a singleton
 
-The SES SDK client is cheap to construct, holds no per-call state, and the factory keeps the credential-chain decision visible at every call site. **Don't cache it as a module-level constant** — that hides which credentials any given call ends up using.
+The SES SDK client is cheap to construct, holds no per-call state, and the factory keeps the credential-chain decision visible at every call site. **Don't cache it as a module-level constant**, that hides which credentials any given call ends up using.
 
 ---
 
@@ -74,7 +74,7 @@ async function sendOne(input: {
 
 Always send **both** HTML and text. The text body is what shows up in inbox-preview tooling, and SES uses it as fallback for plain-text-only clients. Don't ship HTML-only emails.
 
-`sendOne` is **internal** — exported senders are the public API. Callers outside the email module should never construct a `SendEmailCommand` directly.
+`sendOne` is **internal**, exported senders are the public API. Callers outside the email module should never construct a `SendEmailCommand` directly.
 
 ---
 
@@ -98,7 +98,7 @@ export const divider   = (): EmailBlock => ({ type: "divider" });
 export const meta      = (text: string): EmailBlock => ({ type: "meta", text });
 ```
 
-The `rawHtml` block exists for one-off marketing campaigns that need bespoke layout. **Don't reach for it in transactional senders** — stick to `heading + paragraph + cta + meta`.
+The `rawHtml` block exists for one-off marketing campaigns that need bespoke layout. **Don't reach for it in transactional senders**, stick to `heading + paragraph + cta + meta`.
 
 ### Why blocks, not template strings
 
@@ -121,16 +121,16 @@ export function renderEmailLayout(input: {
 
 The renderer applies:
 
-- Brand chrome (logo, color tokens, font stack — defined as `TOKENS` constants in the layout module).
+- Brand chrome (logo, color tokens, font stack, defined as `TOKENS` constants in the layout module).
 - A locale-aware greeting (`Hi`, `Hola`, `Olá`, etc.).
 - The block list, rendered to both HTML and plain text.
 - The footer (tagline + unsubscribe + address).
 
-The `preheader` is the **inbox preview text** — the first ~100 chars users see in their list view. Always write a meaningful one (not a duplicate of the subject) — it's free copy that decides whether the email gets opened.
+The `preheader` is the **inbox preview text**, the first ~100 chars users see in their list view. Always write a meaningful one (not a duplicate of the subject), it's free copy that decides whether the email gets opened.
 
 ---
 
-## Example sender — magic link
+## Example sender, magic link
 
 ```ts
 import { heading, paragraph, cta, meta, type EmailBlock } from "<server>/lib/email/blocks";
@@ -143,7 +143,7 @@ export async function sendMagicLinkEmail(input: { email: string; url: string }):
     heading("Sign in"),
     paragraph("Use the button below to securely sign in. The link is single-use and expires in 15 minutes."),
     cta({ label: "Sign in", href: input.url }),
-    paragraph(input.url), // Plain-URL block — for clients that strip CTAs
+    paragraph(input.url), // Plain-URL block, for clients that strip CTAs
     meta("If you did not request this email, you can ignore it.")
   ];
 
@@ -173,8 +173,8 @@ Two patterns to copy:
 ## Adding a new transactional sender
 
 1. **Pick the FROM**: `serverEnv.SES_FROM_EMAIL` (transactional) or `SES_MARKETING_FROM_EMAIL` (newsletter only). See "Transactional vs marketing" below.
-2. **Compose `EmailBlock[]`** — keep it to 3–5 blocks. Long emails get marked as spam.
-3. **Write a meaningful `preheader`** — not a duplicate of the subject.
+2. **Compose `EmailBlock[]`**, keep it to 3-5 blocks. Long emails get marked as spam.
+3. **Write a meaningful `preheader`**, not a duplicate of the subject.
 4. **Add locale variants if recipients might be non-English.** Use a `Record<SupportedLocale, …>` table for copy:
 
    ```ts
@@ -191,7 +191,7 @@ Two patterns to copy:
 
 ---
 
-## Transactional vs marketing — the FROM split
+## Transactional vs marketing, the FROM split
 
 | Concern              | Transactional                                       | Marketing                                       |
 | -------------------- | --------------------------------------------------- | ----------------------------------------------- |
@@ -200,13 +200,13 @@ Two patterns to copy:
 | Volume               | Per-user actions (1 per sign-in / invite / confirm) | Bulk (newsletter sends)                         |
 | Spam-complaint risk  | Low                                                 | High (unsubscribe-driven complaints)            |
 
-**Why the split matters:** spam complaints from the marketing list damage the **sender domain's reputation** with major mailbox providers. If marketing and transactional share that reputation, a bad campaign tanks deliverability of magic-link emails — users stop getting sign-in links. Reputation isolation via separate subdomains keeps the two failure modes independent.
+**Why the split matters:** spam complaints from the marketing list damage the **sender domain's reputation** with major mailbox providers. If marketing and transactional share that reputation, a bad campaign tanks deliverability of magic-link emails, users stop getting sign-in links. Reputation isolation via separate subdomains keeps the two failure modes independent.
 
 `sendMarketingEmail` should **fall back to `SES_FROM_EMAIL`** if `SES_MARKETING_FROM_EMAIL` is unset (common in dev). In production the marketing var **must** be set; verify before any newsletter campaign.
 
 ---
 
-## Known limitation — `List-Unsubscribe` header
+## Known limitation, `List-Unsubscribe` header
 
 The SES v1 `SendEmailCommand` doesn't accept custom MIME headers via the `Message` field. If you need a proper `List-Unsubscribe` header (e.g. for Gmail's bulk-sender enforcement on marketing volume), switch the marketing path to `SendRawEmailCommand` and build the MIME tree manually. Embedding the unsubscribe link in the rendered HTML/text footer is acceptable for low-volume sends and required for transactional emails (which don't need the header).
 
@@ -215,8 +215,8 @@ The SES v1 `SendEmailCommand` doesn't accept custom MIME headers via the `Messag
 ## Hard rules
 
 - **Never** instantiate `new SESClient(...)` outside `getSesClient()`. Duplicate clients bypass the IAM-fallback contract.
-- **Never** send HTML-only — always include `text`. Use `renderEmailLayout` so both come from one source.
+- **Never** send HTML-only, always include `text`. Use `renderEmailLayout` so both come from one source.
 - **Never** hand-craft HTML strings for transactional emails. Compose `EmailBlock[]` and let the renderer apply the brand chrome.
-- **Never** send marketing email from `SES_FROM_EMAIL` — reputation isolation is the whole point of the split.
+- **Never** send marketing email from `SES_FROM_EMAIL`, reputation isolation is the whole point of the split.
 - **Never** put PII into the `subject` line. It's logged by relays and visible in inbox-preview cards before unlock.
-- **Never** call `sendOne` from outside the email module — exported senders are the public API.
+- **Never** call `sendOne` from outside the email module, exported senders are the public API.

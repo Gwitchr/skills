@@ -57,7 +57,7 @@ Detailed specs live in `docs/`. This file is the entry point.
 
 ---
 
-## <Core Domain Abstraction>  <!-- OPTIONAL — delete if N/A -->
+## <Core Domain Abstraction>  <!-- OPTIONAL, delete if N/A -->
 
 <One screen describing the project's central abstraction, if any. Examples
  of domains where this section earns its keep:
@@ -98,8 +98,8 @@ docs/
 Standalone API routes (only for protocol-bound endpoints):
 
 ```
-api/auth/$.ts          — <auth catch-all>
-api/<webhooks>/...     — <description>
+api/auth/$.ts         , <auth catch-all>
+api/<webhooks>/...    , <description>
 ```
 
 Key server functions / actions: `<fn1>`, `<fn2>`, ...
@@ -127,17 +127,17 @@ pnpm db:generate  # Prisma client (or drizzle-kit generate)
 pnpm db:push      # Push schema (Mongo) / migrate (SQL)
 ```
 
-<Call out any common command that is **missing** (e.g. "no `typecheck` script — run `pnpm exec tsc --noEmit`").>
+<Call out any common command that is **missing** (e.g. "no `typecheck` script, run `pnpm exec tsc --noEmit`").>
 
 ---
 
 ## Coding Rules
 
-**Do:** Use path aliases (`@/*` or `~/*` or `#/*`), type imports (`import type ...` / `import { type ... }`), **`const` object + literal-union types for variants** (not TS `enum` — rejected by TS 5.5+ `--erasableSyntaxOnly` and Node's native TS loader), `classNames()` for conditional classes, atomic architecture (`atoms → molecules → organisms`), PascalCase component files, barrel exports per directory, type-guard predicate functions (`value is Type`) instead of `as` assertions. Once a `className` has **more than 3 utility classes**, switch to `classNames()` with one class per argument.
+**Do:** Use path aliases (`@/*` or `~/*` or `#/*`), type imports (`import type ...` / `import { type ... }`), **`const` object + literal-union types for variants** (not TS `enum`, rejected by TS 5.5+ `--erasableSyntaxOnly` and Node's native TS loader), `classNames()` for conditional classes, atomic architecture (`atoms → molecules → organisms`), PascalCase component files, barrel exports per directory, type-guard predicate functions (`value is Type`) instead of `as` assertions. Once a `className` has **more than 3 utility classes**, switch to `classNames()` with one class per argument.
 
-**Don't:** Inline imports, single-letter variables, nested ternaries, comments inferable from code, `&&` in JSX (use ternary + `null`), inline complex expressions in JSX props (extract to a named `const` first), type assertions (`as`), `eslint-disable-next-line` comments — fix the root cause instead. Never hand-edit generated files (`routeTree.gen.ts`, `src/generated/prisma/**`, lockfiles). TS `enum` in app-authored code (Prisma-generated enums in `schema.prisma` are fine to consume).
+**Don't:** Inline imports, single-letter variables, nested ternaries, comments inferable from code, `&&` in JSX (use ternary + `null`), inline complex expressions in JSX props (extract to a named `const` first), type assertions (`as`), `eslint-disable-next-line` comments, fix the root cause instead. Never hand-edit generated files (`routeTree.gen.ts`, `src/generated/prisma/**`, lockfiles). TS `enum` in app-authored code (Prisma-generated enums in `schema.prisma` are fine to consume).
 
-<Add 1–3 project-specific subsections only for non-obvious patterns:
+<Add 1-3 project-specific subsections only for non-obvious patterns:
  e.g. **AI generation:** ..., **Sentry instrumentation:** ..., **i18n:** ..., **Payments:** ..., **Image uploads:** ...>
 
 ---
@@ -154,7 +154,7 @@ Install/remove deps, delete files, full builds, `prisma db push` / `migrate` aga
 
 ### Never
 
-`git push` without explicit request. Destructive git commands (`reset --hard`, `clean -fd`, `branch -D`, force-push to `main`). List files outside the project. Read `.env` or any `.env.*` file except `.env.example` — they contain live secrets. Reason from `.env.example` / error output instead. Bypass hooks (`--no-verify`) or signing (`--no-gpg-sign`) unless explicitly asked. Hand-edit generated files.
+`git push` without explicit request. Destructive git commands (`reset --hard`, `clean -fd`, `branch -D`, force-push to `main`). List files outside the project. Read `.env` or any `.env.*` file except `.env.example`, they contain live secrets. Reason from `.env.example` / error output instead. Bypass hooks (`--no-verify`) or signing (`--no-gpg-sign`) unless explicitly asked. Hand-edit generated files.
 
 ---
 

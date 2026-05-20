@@ -1,4 +1,4 @@
-# Image / asset storage — Reference
+# Image / asset storage, Reference
 
 Detailed specs for the upload-flow patterns in [SKILL.md](SKILL.md). For the underlying S3 + CloudFront primitives (`uploadObjectToS3`, `getPublicAssetUrl`, `getS3Client` with IAM fallback, env schema, cache header), see [auth-stack/storage-s3.md](../auth-stack/storage-s3.md). This file does not duplicate them.
 
@@ -22,7 +22,7 @@ Filenames are suggestive. Match the conventions in your project's structure (see
 
 ---
 
-## Key schemas — concrete examples
+## Key schemas, concrete examples
 
 ### User-uploaded asset
 
@@ -40,12 +40,12 @@ assets/<ownerId>/<assetId>/<sanitized-filename>.<ext>
 generated/<ownerId>/<batchStamp>/<sanitized-prompt>-<imageIndex>-<uuid>.<ext>
 ```
 
-- `batchStamp = new Date().toISOString().replace(/[:.]/g, "-")` — sortable, filesystem-safe.
+- `batchStamp = new Date().toISOString().replace(/[:.]/g, "-")`, sortable, filesystem-safe.
 - `<sanitized-prompt>` comes from `sanitizePathSegment(prompt, "image")` (caps at 80 chars).
 - `<imageIndex>` is the zero- or one-based position within the batch (be consistent across the codebase).
-- `<uuid>` is `crypto.randomUUID()` — prevents collisions when a single prompt produces multiple images.
+- `<uuid>` is `crypto.randomUUID()`, prevents collisions when a single prompt produces multiple images.
 
-### Avatar (mutable — needs short cache header)
+### Avatar (mutable, needs short cache header)
 
 ```
 users/<userId>/avatar/<contentHash>.<ext>
@@ -55,12 +55,12 @@ A content-derived hash (e.g. first 16 chars of SHA-256 of the bytes) makes the U
 
 ---
 
-## Sanitizers — copy-paste-ready
+## Sanitizers, copy-paste-ready
 
 ```ts
 // <server>/lib/storage/sanitize.ts
 
-// Full filename — strips existing extension; extension is re-derived from MIME.
+// Full filename, strips existing extension; extension is re-derived from MIME.
 export function sanitizeFileName(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "file";
@@ -74,7 +74,7 @@ export function sanitizeFileName(raw: string): string {
   return sanitized.slice(0, 120);
 }
 
-// Single path segment (id, prompt slug, etc.) — no dots allowed.
+// Single path segment (id, prompt slug, etc.), no dots allowed.
 export function sanitizePathSegment(value: string, fallback: string): string {
   const sanitized = value
     .trim()
@@ -90,7 +90,7 @@ export function sanitizePathSegment(value: string, fallback: string): string {
 
 - Empty input → `"file"` / `fallback`.
 - All-symbol input (`"---"`, `"   "`, `"@#$"`) → fallback.
-- Unicode (`"café résumé.pdf"`) → ASCII-folded slug (depends on your slugifier — these helpers use a hyphen-replace strategy, not transliteration; if you need transliteration, swap to a slugify lib).
+- Unicode (`"café résumé.pdf"`) → ASCII-folded slug (depends on your slugifier, these helpers use a hyphen-replace strategy, not transliteration; if you need transliteration, swap to a slugify lib).
 - Path-traversal attempts (`"../../etc/passwd"`) → harmless slug.
 - Length explosion (10 KB filename) → capped at the length limit.
 
@@ -99,7 +99,7 @@ export function sanitizePathSegment(value: string, fallback: string): string {
 ## MIME → extension tables
 
 ```ts
-// Document / asset uploads (bitmap-only by default — SVG is opt-in per the SVG-XSS rule in SKILL.md)
+// Document / asset uploads (bitmap-only by default, SVG is opt-in per the SVG-XSS rule in SKILL.md)
 export const MIME_TO_EXTENSION = {
   "image/png":       "png",
   "image/jpeg":      "jpg",
@@ -127,18 +127,18 @@ Suggested per-route caps:
 | AI batch upload        | 12 MB    | 200                 |
 | Avatar                 | 2 MB     | 1                   |
 
-The numbers are starting points — adjust to your bandwidth budget.
+The numbers are starting points, adjust to your bandwidth budget.
 
 ---
 
-## Asset model — generic shape
+## Asset model, generic shape
 
 ```prisma
 model Asset {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
   ownerId   String    @db.ObjectId             // who owns / uploaded
   source    String    @default("user_uploaded") // "user_uploaded" | "ai_generated" | "system_imported"
-  fileUrl   String?                              // CloudFront URL — null until upload completes
+  fileUrl   String?                              // CloudFront URL, null until upload completes
   metadata  Json?                                // optional metadata blob (prompt, dimensions, etc.)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -150,7 +150,7 @@ model Asset {
 
 **Per the auth-stack/prisma-mongo.md rules:** every relation field needs an explicit `@@index`. The two indexes above cover the two common query patterns (assets-by-owner, assets-by-source).
 
-`fileUrl` is **`String?`** because it's `null` between row creation and S3 upload completion. A row with `fileUrl == null` is a valid recoverable state — the upload either failed or is still in flight.
+`fileUrl` is **`String?`** because it's `null` between row creation and S3 upload completion. A row with `fileUrl == null` is a valid recoverable state, the upload either failed or is still in flight.
 
 If your domain needs richer linkage (assets attached to projects, posts, conversations, etc.), keep `Asset` lean and add a join model or a foreign key on the consuming entity:
 
@@ -165,7 +165,7 @@ model Post {
 }
 ```
 
-Don't bake business taxonomy (project, phase, round, status) into `Asset` itself — keep it a generic upload primitive.
+Don't bake business taxonomy (project, phase, round, status) into `Asset` itself, keep it a generic upload primitive.
 
 ---
 
@@ -194,13 +194,13 @@ Or use Zod and pick whichever validation pattern matches the rest of your projec
 
 **Rules of thumb:**
 
-- Always return `null` from the parser instead of throwing — display components can fall back to a generic "unknown asset" view.
+- Always return `null` from the parser instead of throwing, display components can fall back to a generic "unknown asset" view.
 - Add new metadata variants as new union arms; don't loosen existing ones.
 - Don't put binary data in `metadata`. Anything large enough to matter belongs in S3.
 
 ---
 
-## Upload server fn — full template with auth gate
+## Upload server fn, full template with auth gate
 
 ```ts
 import { createServerFn } from "@tanstack/react-start";
@@ -296,11 +296,11 @@ export const uploadAsset = createServerFn({ method: "POST" })
   });
 ```
 
-The `parent` model and its `state` enum are illustrative — substitute your domain's parent entity.
+The `parent` model and its `state` enum are illustrative, substitute your domain's parent entity.
 
 ---
 
-## AI image flow — concrete shape
+## AI image flow, concrete shape
 
 Three endpoints, three responsibilities:
 
@@ -328,7 +328,7 @@ Response: { uploads: Array<{ key, url, prompt, index }> }
 ```
 
 - Runs the canonical upload flow per item: parse → validate MIME + size → sanitize → key → upload.
-- No DB writes here — this route is just the storage layer.
+- No DB writes here, this route is just the storage layer.
 - Higher rate limit than generation (storage is cheap).
 
 ### 3. Persist (server fn, attaches to a domain entity)
@@ -368,7 +368,7 @@ export function AssetPreview({ fileUrl, metadata, alt }: Props) {
 }
 ```
 
-The CloudFront URL goes straight into `src`. **No proxy, no signed query string.** If your project uses `next/image` or another optimized image component, route the CloudFront URL through it for responsive sizes — but the persisted URL is still the CloudFront one.
+The CloudFront URL goes straight into `src`. **No proxy, no signed query string.** If your project uses `next/image` or another optimized image component, route the CloudFront URL through it for responsive sizes, but the persisted URL is still the CloudFront one.
 
 For SVGs specifically: rendering via `<img src>` is the safe path. The browser sandboxes any inline `<script>` in the SVG. Never use `dangerouslySetInnerHTML` for user-uploaded SVGs.
 
@@ -410,7 +410,7 @@ Coverage groups every upload server fn should have:
 7. **CloudFront URL persistence.** `fileUrl` written to the row equals the upload result `url`.
 8. **Returned payload shape.** Matches the route contract.
 
-Assert the **exact key string** passed to `uploadObjectToS3` — that's the contract that ties this layer to consumers (key prefixes are referenced for IAM bucket policies, lifecycle rules, etc.).
+Assert the **exact key string** passed to `uploadObjectToS3`, that's the contract that ties this layer to consumers (key prefixes are referenced for IAM bucket policies, lifecycle rules, etc.).
 
 ---
 
@@ -422,7 +422,7 @@ The S3 + CloudFront stack in this project family **deliberately does not provide
 - **CloudFront signed URLs / signed cookies.** All assets are public via CloudFront.
 - **Cache invalidation** (`CreateInvalidation` API). Keys are content-addressed; new content = new key.
 - **Image processing.** No resizing, thumbnailing, format conversion, EXIF stripping. `<img>` and CSS `object-fit` cover most needs; deliberate processing belongs in a separate worker, not the upload path.
-- **A `deleteObject` helper.** The default cache is `immutable` for a year — deletes don't free CloudFront cache slots immediately, and the design assumes assets are not deleted in the normal flow. If you need deletion (compliance, GDPR), add a deliberate flow with cache-eviction and key-rotation handling — not a one-liner.
-- **Direct-to-S3 uploads from the browser.** Same reason as no presigned URLs — every upload runs through your auth + validation + sanitization layer.
+- **A `deleteObject` helper.** The default cache is `immutable` for a year, deletes don't free CloudFront cache slots immediately, and the design assumes assets are not deleted in the normal flow. If you need deletion (compliance, GDPR), add a deliberate flow with cache-eviction and key-rotation handling, not a one-liner.
+- **Direct-to-S3 uploads from the browser.** Same reason as no presigned URLs, every upload runs through your auth + validation + sanitization layer.
 
-If a task seems to need one of these, **raise it before adding** — the absence is a deliberate design choice, not an oversight.
+If a task seems to need one of these, **raise it before adding**, the absence is a deliberate design choice, not an oversight.

@@ -1,8 +1,8 @@
 # Workflows
 
-Five recipes that cover almost every change to this stack. Pick the one that matches your task and follow the steps in order — none of them have hidden dependencies you can skip.
+Five recipes that cover almost every change to this stack. Pick the one that matches your task and follow the steps in order, none of them have hidden dependencies you can skip.
 
-> **Package manager / TS runner.** Examples use `prisma db push` and `prisma generate` directly; substitute the project's wrappers (`pnpm db:push`, `npm run db:push`, `bun run db:push`, etc.). The seed script runs with any TS executor — `tsx`, `bun run`, `ts-node` all work. Examples below use `tsx` as the default.
+> **Package manager / TS runner.** Examples use `prisma db push` and `prisma generate` directly; substitute the project's wrappers (`pnpm db:push`, `npm run db:push`, `bun run db:push`, etc.). The seed script runs with any TS executor, `tsx`, `bun run`, `ts-node` all work. Examples below use `tsx` as the default.
 
 ---
 
@@ -19,11 +19,11 @@ The most common change. The string must end up in **the seed file** to survive t
      role: "action",        // pick the closest of the 11 StringRole values
      section: "hero",       // your name for the visual region; consistent within the page
      en: "Get started in 5 minutes",
-     es: "Empieza en 5 minutos"        // optional — omit or null if not yet translated
+     es: "Empieza en 5 minutos"        // optional, omit or null if not yet translated
    }
    ```
 
-   The composite key `(slug, fallback, role, section)` must be unique within the page. If you want two buttons with the same base-language text, distinguish them by `section` or `role` — never by appending markers to `fallback`.
+   The composite key `(slug, fallback, role, section)` must be unique within the page. If you want two buttons with the same base-language text, distinguish them by `section` or `role`, never by appending markers to `fallback`.
 
 3. Re-seed:
 
@@ -31,7 +31,7 @@ The most common change. The string must end up in **the seed file** to survive t
    npx tsx prisma/seed-translations.ts
    ```
 
-   This **wipes** all `ContentString` and `ContentPage` rows and re-creates from the file. Any unsaved admin-UI edits are lost — see "Coordinating with admin edits" below.
+   This **wipes** all `ContentString` and `ContentPage` rows and re-creates from the file. Any unsaved admin-UI edits are lost, see "Coordinating with admin edits" below.
 
 4. Use the string in JSX:
 
@@ -44,7 +44,7 @@ The most common change. The string must end up in **the seed file** to survive t
 
 ### When the string already exists
 
-If you're editing existing copy, change `fallback` **and** the JSX call site in lockstep. The lookup matches on `fallback` exactly — leaving the old key in JSX leaves the user with the old translations and no way to recover them short of editing the row in the DB.
+If you're editing existing copy, change `fallback` **and** the JSX call site in lockstep. The lookup matches on `fallback` exactly, leaving the old key in JSX leaves the user with the old translations and no way to recover them short of editing the row in the DB.
 
 ---
 
@@ -67,7 +67,7 @@ A "page" is a logical bucket for strings, not necessarily a 1:1 mapping to a rou
 
 2. Re-seed: `npx tsx prisma/seed-translations.ts`.
 3. In the route component, call `useTranslation("pricing")`.
-4. The new page appears automatically in the admin selector — no UI change needed.
+4. The new page appears automatically in the admin selector, no UI change needed.
 
 ---
 
@@ -78,7 +78,7 @@ The admin route is gated to admin role and lives at a path your project chooses 
 1. Navigate to the admin translations route.
 2. Pick a page from the dropdown.
 3. Click Edit on a row, change the locale columns, save.
-4. The mutation invalidates `adminQueries.contentPages().queryKey` only — the **public** `i18nQueries.pageStrings(...)` cache remains warm. Refresh the public page (or the whole app) to see the change.
+4. The mutation invalidates `adminQueries.contentPages().queryKey` only, the **public** `i18nQueries.pageStrings(...)` cache remains warm. Refresh the public page (or the whole app) to see the change.
 
 ### Coordinating with admin edits
 
@@ -93,7 +93,7 @@ There's no migration path. The DB is the cache; the seed is the source of truth.
 
 ## Adding a new `StringRole`
 
-Three coordinated edits, **must stay in sync** — adding to only one place is the most common bug in this stack.
+Three coordinated edits, **must stay in sync**, adding to only one place is the most common bug in this stack.
 
 1. **Prisma enum** (`prisma/schema.prisma`):
 
@@ -128,7 +128,7 @@ prisma generate      # regenerate Prisma client
 
 Restart the dev server. The new role is now usable in the seed file and the admin UI.
 
-> **Why three places?** Prisma's generated `StringRole` is a TS type only (no runtime value), so you can't `Object.values(StringRole)` to derive a runtime list. The TS union is needed for client code (`types.ts` is bundled to the browser; the Prisma client isn't). The runtime array is needed for Zod validation in `upsertContentString`. There's no clean way to deduplicate — accept the triple-sync cost and add a comment in each location pointing at the others.
+> **Why three places?** Prisma's generated `StringRole` is a TS type only (no runtime value), so you can't `Object.values(StringRole)` to derive a runtime list. The TS union is needed for client code (`types.ts` is bundled to the browser; the Prisma client isn't). The runtime array is needed for Zod validation in `upsertContentString`. There's no clean way to deduplicate, accept the triple-sync cost and add a comment in each location pointing at the others.
 
 ---
 
@@ -144,11 +144,11 @@ The seams:
 type Languages {
   en   String
   es   String?
-  fr   String?    // new — optional so existing rows stay valid
+  fr   String?    // new, optional so existing rows stay valid
 }
 ```
 
-Mongo embedded types tolerate missing optional fields, so existing rows don't need a backfill — they'll have `fr: null` implicitly.
+Mongo embedded types tolerate missing optional fields, so existing rows don't need a backfill, they'll have `fr: null` implicitly.
 
 ### 2. `SUPPORTED_LOCALES` and `ResolvedString` (`<server>/lib/i18n/types.ts`)
 
@@ -190,7 +190,7 @@ const LABELS_LONG: Record<SupportedLocale, string> = {
 
 ### Server fns to update
 
-`getPageStrings` (`<server>/lib/i18n/getPageStrings.ts`) flattens the `Languages` type — add the new locale:
+`getPageStrings` (`<server>/lib/i18n/getPageStrings.ts`) flattens the `Languages` type, add the new locale:
 
 ```ts
 return page.strings.map((s) => ({
@@ -203,7 +203,7 @@ return page.strings.map((s) => ({
 }));
 ```
 
-`listContentPages` (`<server>/lib/admin/listContentPages.ts`) does the same shape — mirror it.
+`listContentPages` (`<server>/lib/admin/listContentPages.ts`) does the same shape, mirror it.
 
 `upsertContentString` (`<server>/lib/admin/upsertContentString.ts`) accepts and writes the new field. Update both the Zod schema and the `text` write:
 
@@ -238,7 +238,7 @@ type Str = {
 };
 ```
 
-The seed handler that writes rows already handles missing optionals — strings without `fr` just store `null` and fall back to `en` at render time.
+The seed handler that writes rows already handles missing optionals, strings without `fr` just store `null` and fall back to `en` at render time.
 
 ### Push and verify
 
@@ -256,7 +256,7 @@ Verify:
 
 ### Single-locale forks
 
-If a fork wants only the base language, it can ignore `LocaleSelect` and the `setLocale` plumbing — `DEFAULT_LOCALE` is set at the slice and resolution always returns `match.<base>` for the base locale. To re-enable multi-locale later, mount `<LocaleSelect />` and follow the steps above.
+If a fork wants only the base language, it can ignore `LocaleSelect` and the `setLocale` plumbing, `DEFAULT_LOCALE` is set at the slice and resolution always returns `match.<base>` for the base locale. To re-enable multi-locale later, mount `<LocaleSelect />` and follow the steps above.
 
 ---
 
@@ -266,7 +266,7 @@ The seed script is **destructive**. Before running:
 
 - [ ] Confirm no admin-UI edits are pending (or you have copied them back into the seed file).
 - [ ] Confirm you're not pointing at a shared dev database others rely on (check `DATABASE_URL`).
-- [ ] Confirm your seed file passes TS: `tsc --noEmit prisma/seed-translations.ts` (the TS runner won't tell you about subtle type issues — it transpiles and runs without strict typechecking).
+- [ ] Confirm your seed file passes TS: `tsc --noEmit prisma/seed-translations.ts` (the TS runner won't tell you about subtle type issues, it transpiles and runs without strict typechecking).
 
 Then:
 
@@ -274,7 +274,7 @@ Then:
 npx tsx prisma/seed-translations.ts
 ```
 
-The script should log `Cleared N pages and M strings` first, then `Seeded N pages and M strings`. If counts look wrong, your `pages` array is wrong — the seed file is the only input.
+The script should log `Cleared N pages and M strings` first, then `Seeded N pages and M strings`. If counts look wrong, your `pages` array is wrong, the seed file is the only input.
 
 ### A minimal seed-script skeleton
 
@@ -340,4 +340,4 @@ main()
   .finally(() => prisma.$disconnect());
 ```
 
-When adding a new locale, extend the `Str` type and the `text:` literal in the `create` call to include the new field — see "Adding a new language" above.
+When adding a new locale, extend the `Str` type and the `text:` literal in the `create` call to include the new field, see "Adding a new language" above.

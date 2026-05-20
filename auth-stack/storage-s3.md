@@ -11,7 +11,7 @@ upload caller (avatar setter, content image, export, …)
     └── getPublicAssetUrl(key) → CloudFront URL  ← what the UI uses
 ```
 
-The bucket itself is **private**. Public reads happen through CloudFront, which fronts the bucket via an OAC (Origin Access Control). **Never** expose `s3://` URIs or pre-signed S3 URLs to clients — clients always see CloudFront URLs from `getPublicAssetUrl`.
+The bucket itself is **private**. Public reads happen through CloudFront, which fronts the bucket via an OAC (Origin Access Control). **Never** expose `s3://` URIs or pre-signed S3 URLs to clients, clients always see CloudFront URLs from `getPublicAssetUrl`.
 
 ---
 
@@ -34,7 +34,7 @@ function getS3Client() {
 }
 ```
 
-The credential pattern is identical to `getSesClient()` (see [email-ses.md](email-ses.md)) and is the canonical IAM-fallback shape. When you add a new AWS SDK client (e.g. `@aws-sdk/client-cloudfront` for invalidations), copy this exact shape — see SKILL.md §"Core principles" rule 2.
+The credential pattern is identical to `getSesClient()` (see [email-ses.md](email-ses.md)) and is the canonical IAM-fallback shape. When you add a new AWS SDK client (e.g. `@aws-sdk/client-cloudfront` for invalidations), copy this exact shape, see SKILL.md §"Core principles" rule 2.
 
 ---
 
@@ -74,7 +74,7 @@ export async function uploadObjectToS3(input: {
 - ✅ Use a content-derived hash, parent-entity ID + artifact ID, or fresh ULID in the key.
 - ❌ Never overwrite a key in place. Generate a new one.
 
-If you genuinely need mutable content under a stable key (e.g. user avatar at `users/<id>/avatar.png` where the URL is referenced from many places), pass an explicit `cacheControl` like `"public, max-age=300"` and budget for the staleness — or generate a new key on every upload and persist the latest URL on the user row.
+If you genuinely need mutable content under a stable key (e.g. user avatar at `users/<id>/avatar.png` where the URL is referenced from many places), pass an explicit `cacheControl` like `"public, max-age=300"` and budget for the staleness, or generate a new key on every upload and persist the latest URL on the user row.
 
 ### Why `Body` is `Uint8Array`
 
@@ -104,11 +104,11 @@ function normalizeCloudFrontBaseUrl(value: string): string {
 
 ### Why per-segment encoding
 
-`encodeURIComponent` on the whole key would escape the `/` separators and break the path. Splitting on `/`, encoding each segment, and rejoining preserves the path structure while still escaping spaces, parens, and unicode in filenames. The CloudFront origin maps the URL path to the S3 key 1:1 — get this wrong and you'll see 403s with no useful error.
+`encodeURIComponent` on the whole key would escape the `/` separators and break the path. Splitting on `/`, encoding each segment, and rejoining preserves the path structure while still escaping spaces, parens, and unicode in filenames. The CloudFront origin maps the URL path to the S3 key 1:1, get this wrong and you'll see 403s with no useful error.
 
 ### Why `normalizeCloudFrontBaseUrl` exists
 
-`AWS_CLOUDFRONT_URL` is operator-supplied; it might come in as `d1234.cloudfront.net`, `https://d1234.cloudfront.net`, `https://d1234.cloudfront.net/`, or `//d1234.cloudfront.net`. The normalizer makes all of these produce the same final URL. **Don't replicate this logic at call sites** — always go through `getPublicAssetUrl`.
+`AWS_CLOUDFRONT_URL` is operator-supplied; it might come in as `d1234.cloudfront.net`, `https://d1234.cloudfront.net`, `https://d1234.cloudfront.net/`, or `//d1234.cloudfront.net`. The normalizer makes all of these produce the same final URL. **Don't replicate this logic at call sites**, always go through `getPublicAssetUrl`.
 
 ---
 
@@ -126,7 +126,7 @@ system/static/<filename>
 ```
 
 1. **Start with a top-level namespace** (`users/`, `articles/`, `system/`, etc.). Prevents key collisions between domains and makes IAM bucket policies easier to write per-prefix.
-2. **Use IDs, not slugs.** Slugs change; ObjectIds / ULIDs don't. A renamed entity shouldn't move its assets — and asset-URL changes invalidate caches everywhere they're embedded.
+2. **Use IDs, not slugs.** Slugs change; ObjectIds / ULIDs don't. A renamed entity shouldn't move its assets, and asset-URL changes invalidate caches everywhere they're embedded.
 3. **End with an extension.** CloudFront and browser tooling use it for content-type sniffing fallback. Don't rely on `Content-Type` alone.
 
 ---
@@ -134,8 +134,8 @@ system/static/<filename>
 ## Hard rules
 
 - **Never** instantiate `new S3Client(...)` outside `getS3Client()`. Duplicate clients bypass the IAM-fallback contract.
-- **Never** expose raw `s3://` URIs or pre-signed S3 URLs to clients — the bucket is private. Always go through `getPublicAssetUrl`.
+- **Never** expose raw `s3://` URIs or pre-signed S3 URLs to clients, the bucket is private. Always go through `getPublicAssetUrl`.
 - **Never** overwrite a key under the default `immutable` cache header. Generate a new key for new content.
 - **Never** hardcode the CloudFront URL in feature code. Read `serverEnv.AWS_CLOUDFRONT_URL` (via `getPublicAssetUrl`).
-- **Never** skip `encodeKeyForUrl` — naive `encodeURIComponent(wholeKey)` will escape `/` and produce a broken URL.
-- **Never** read or write to a bucket other than `serverEnv.AWS_BUCKET_NAME` from this codebase. If multi-bucket support is genuinely needed, add a new env var and a new uploader function — don't parameterize this one.
+- **Never** skip `encodeKeyForUrl`, naive `encodeURIComponent(wholeKey)` will escape `/` and produce a broken URL.
+- **Never** read or write to a bucket other than `serverEnv.AWS_BUCKET_NAME` from this codebase. If multi-bucket support is genuinely needed, add a new env var and a new uploader function, don't parameterize this one.

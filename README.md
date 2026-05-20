@@ -2,16 +2,16 @@
 
 A set of opinionated, publication-grade Claude Code skills for building React + TypeScript web apps. Each skill is a self-contained set of `*.md` files that an AI agent (Claude Code, Cursor, Aider, etc.) can read to understand a convention, apply it, and resist drift over time.
 
-The skills below are **interlocking but independent** — pick the ones that match the project's stack and ignore the rest. Where one skill depends on another, the dependency is named explicitly in its frontmatter and Stack-assumed callout.
+The skills below are **interlocking but independent**, pick the ones that match the project's stack and ignore the rest. Where one skill depends on another, the dependency is named explicitly in its frontmatter and Stack-assumed callout.
 
 | Skill | What it covers |
 |---|---|
-| [`components-hierarchy`](components-hierarchy/SKILL.md) | React/TS/Tailwind UI conventions — atomic hierarchy, `classNames` utility, variant/size dictionaries, polymorphic `as` prop, composition slots, icon usage, React 19 patterns, Tailwind v3/v4 styling. Framework-agnostic (Vite SPA, Next.js, Remix, TanStack Start). |
-| [`zod-prisma-tanstack`](zod-prisma-tanstack/SKILL.md) | Full-stack data layer — Prisma server actions, Zod schemas, TanStack Query v5 options-functions + cache-key hierarchy, typed fetchers, REST API routes (Next.js App/Pages Router, TanStack Start API routes) and RPC server functions (TanStack Start `createServerFn`). |
+| [`components-hierarchy`](components-hierarchy/SKILL.md) | React/TS/Tailwind UI conventions, atomic hierarchy, `classNames` utility, variant/size dictionaries, polymorphic `as` prop, composition slots, icon usage, React 19 patterns, Tailwind v3/v4 styling. Framework-agnostic (Vite SPA, Next.js, Remix, TanStack Start). |
+| [`zod-prisma-tanstack`](zod-prisma-tanstack/SKILL.md) | Full-stack data layer, Prisma server actions, Zod schemas, TanStack Query v5 options-functions + cache-key hierarchy, typed fetchers, REST API routes (Next.js App/Pages Router, TanStack Start API routes) and RPC server functions (TanStack Start `createServerFn`). |
 | [`auth-stack`](auth-stack/SKILL.md) | Better Auth + Prisma + MongoDB + AWS SES + S3/CloudFront. Magic-link auth with hashed tokens at rest, session/role narrowing, redirect sanitization, IAM-fallback contract for AWS clients, transactional vs marketing email split. |
 | [`content-stack`](content-stack/SKILL.md) | Database-backed i18n on Prisma + MongoDB. `ContentPage`/`ContentString` schema, `useTranslation(pageSlug)` hook with fallback resolution, store-driven active locale, seed-as-source-of-truth + gated admin patch UI. Depends on `auth-stack`. |
 | [`content-authoring`](content-authoring/SKILL.md) | Tiptap v3 + markdown content authoring on Prisma + MongoDB. Markdown vs editor-JSON vs MDX storage trade-offs, locale strategy, sanitization, image upload, AI-assisted authoring, real-time collab via Y.js + Hocuspocus. |
-| [`image-storage`](image-storage/SKILL.md) | File-upload patterns on top of S3 + CloudFront — server-proxied data-URL uploads, MIME and size validation, filename sanitization, create-row-first ordering, AI-generated image flow. Builds on `auth-stack/storage-s3.md`. |
+| [`image-storage`](image-storage/SKILL.md) | File-upload patterns on top of S3 + CloudFront, server-proxied data-URL uploads, MIME and size validation, filename sanitization, create-row-first ordering, AI-generated image flow. Builds on `auth-stack/storage-s3.md`. |
 | [`docs-vault`](docs-vault/SKILL.md) | Build a `docs/` Obsidian vault that doubles as a GitHub-readable index. Eight flat top-level domain docs (PRODUCT / RUNTIME / ARCHITECTURE / DATA / AUTH / ENGINEERING / TESTING / DESIGN), bidirectional wikilinks, graph color groups, and a spec-compliant DESIGN.md derived from `tailwind.config.{ts,js}` or the v4 `@theme` block. |
 
 ## Conventions every skill shares
@@ -25,7 +25,7 @@ The skills below are **interlocking but independent** — pick the ones that mat
 
 ## Using a skill
 
-The skills are designed to be installed under `.agents/skills/<name>/` in a host project (Claude Code's skill discovery mechanism) and referenced from an `AGENTS.md` or `CLAUDE.md` entry point. They also work as plain reference documentation — clone this repo, read the relevant SKILL.md, apply.
+The skills are designed to be installed under `.agents/skills/<name>/` in a host project (Claude Code's skill discovery mechanism) and referenced from an `AGENTS.md` or `CLAUDE.md` entry point. They also work as plain reference documentation, clone this repo, read the relevant SKILL.md, apply.
 
 When working in a project that uses one of these skills, an AI agent should:
 
@@ -35,4 +35,4 @@ When working in a project that uses one of these skills, an AI agent should:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

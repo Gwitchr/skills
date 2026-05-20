@@ -99,7 +99,7 @@ Color groups by tag. Adjust hex/`rgb` values to taste; the structure is what mat
 
 ### `bookmarks.json`
 
-Pin Home + 3–4 most-touched entry points.
+Pin Home + 3-4 most-touched entry points.
 
 ```json
 {
@@ -125,12 +125,12 @@ tags: [moc]
 
 # Home
 
-Obsidian vault for <project>. Open `docs/` as the vault root — `.obsidian/` lives here.
+Obsidian vault for <project>. Open `docs/` as the vault root, `.obsidian/` lives here.
 
 GitHub-facing entry: [README](README.md).
 External entry from repo root: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLAUDE.md).
 
-## MOC — start here
+## MOC, start here
 
 ### Top-level (flat domain docs)
 
@@ -226,8 +226,8 @@ Each top-level doc is a short summary that links into the deeper folder content 
 \`\`\`
 docs/
 ├── .obsidian/        Obsidian config (graph colors, plugins, bookmarks)
-├── Home.md           Vault MOC — open this first in Obsidian
-├── README.md         This file — GitHub folder index
+├── Home.md           Vault MOC, open this first in Obsidian
+├── README.md         This file, GitHub folder index
 │
 ├── PRODUCT.md        ┐
 ├── RUNTIME.md        │
@@ -285,7 +285,7 @@ tags: [moc, <domain-tag>]
 - ↩ [[Home]]
 ```
 
-`DESIGN.md` is the exception — see [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md).
+`DESIGN.md` is the exception, see [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md).
 
 ---
 
@@ -310,7 +310,7 @@ tags: [<folder-tag>]
 - ↩ <[[overview]] for architecture/, [[Home]] otherwise>
 ```
 
-The `↑` line is non-negotiable — it makes the graph bidirectional. See SKILL.md §5.
+The `↑` line is non-negotiable, it makes the graph bidirectional. See SKILL.md §5.
 
 ---
 
@@ -324,7 +324,7 @@ aliases: [<NNNN> <short title>]
 tags: [adr]
 ---
 
-# <NNNN> — <short imperative title>
+# <NNNN>, <short imperative title>
 
 ## Status
 proposed | accepted | superseded by <NNNN>
@@ -356,16 +356,16 @@ Single pointer. Everything else is downstream.
 
 ## Read this
 
-→ **[AGENTS.md](AGENTS.md)** — entry point for AI agents working in this repo.
+→ **[AGENTS.md](AGENTS.md)**, entry point for AI agents working in this repo.
 
 → **Top-level domain docs** (read in order):
 [PRODUCT](docs/PRODUCT.md) → [RUNTIME](docs/RUNTIME.md) → [ARCHITECTURE](docs/ARCHITECTURE.md) → [DATA](docs/DATA.md) → [AUTH](docs/AUTH.md) → [ENGINEERING](docs/ENGINEERING.md) → [TESTING](docs/TESTING.md) → [DESIGN](docs/DESIGN.md).
 
-→ **[docs/README.md](docs/README.md)** — Obsidian vault. Open `docs/` as a vault in Obsidian — `.obsidian/` config is committed (graph color groups by tag, bookmarks, plugin defaults). MOC entry: [docs/Home.md](docs/Home.md).
+→ **[docs/README.md](docs/README.md)**, Obsidian vault. Open `docs/` as a vault in Obsidian, `.obsidian/` config is committed (graph color groups by tag, bookmarks, plugin defaults). MOC entry: [docs/Home.md](docs/Home.md).
 
 ## Don't
 
-- Don't read `.env` / `.env.local` with agent tools — live secrets. Read `.env.example` instead.
+- Don't read `.env` / `.env.local` with agent tools, live secrets. Read `.env.example` instead.
 - <other project-specific don'ts>
 
 ## Do
@@ -414,7 +414,7 @@ src/
 
 Inventory: [`skills-lock.json`](skills-lock.json) at repo root. Sources installed under `.agents/skills/<name>/SKILL.md`.
 
-The vault does **not** maintain a separate skills index — domain docs name the skill they distill inline. Open the relevant `.agents/skills/<name>/SKILL.md` directly when working in that area.
+The vault does **not** maintain a separate skills index, domain docs name the skill they distill inline. Open the relevant `.agents/skills/<name>/SKILL.md` directly when working in that area.
 
 ## Local commands
 
