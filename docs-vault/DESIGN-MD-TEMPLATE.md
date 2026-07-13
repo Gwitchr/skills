@@ -1,8 +1,8 @@
-# DESIGN.md template (Tailwind-focused)
+# DESIGN.md template (general-purpose)
 
 Reference for [SKILL.md](SKILL.md) Step 6.
 
-This file explains how to derive a spec-compliant `docs/DESIGN.md` from a Tailwind-using project. The DESIGN.md spec is [google-labs-code/design.md](https://github.com/google-labs-code/design.md), read its `docs/spec.md` for the normative format definition.
+This file explains how to derive a spec-compliant `docs/DESIGN.md` from an existing project's design sources. The DESIGN.md spec is [google-labs-code/design.md](https://github.com/google-labs-code/design.md); read its `docs/spec.md` for the normative format definition.
 
 ---
 
@@ -11,69 +11,71 @@ This file explains how to derive a spec-compliant `docs/DESIGN.md` from a Tailwi
 Produce a `docs/DESIGN.md` that:
 
 1. **Lints clean**, `npx @google/design.md lint docs/DESIGN.md` reports `0 errors, 0 warnings`.
-2. **Round-trips to Tailwind**, `npx @google/design.md export --format tailwind docs/DESIGN.md` produces a JSON `theme.extend` object that could replace the project's existing Tailwind theme.
+2. **Maps back to the implementation**, token names, values, and component roles correspond to files already in the repo or to explicitly documented brand sources.
 3. **Coexists with Obsidian**, frontmatter carries both spec keys and Obsidian metadata (`aliases`, `tags`).
-4. **Documents intent, not just current code**, if the project's `Button.tsx` reaches for a raw Tailwind palette color (e.g. `violet-700`) but the brand tokens intend a custom one (e.g. `brand-primary`), tokens encode the *intended* state and prose calls out the drift.
+4. **Documents intent, not just current code**, if implementation code reaches for raw values but the brand tokens intend semantic values, tokens encode the intended state and prose calls out the drift.
 
 ## Step-by-step derivation
 
-### Step 1, Read the project's Tailwind config
+### Step 1, Find the design source of truth
 
-For Tailwind v3:
+Do not assume a framework, styling library, or file name. Inspect the repository for the source that most directly defines visual language:
 
 ```bash
-cat tailwind.config.ts   # or .js
+rg --files -g '*token*' -g '*theme*' -g '*style*' -g '*brand*' -g '*design*'
 ```
 
-Look for:
-- `theme.extend.colors`, the brand palette.
-- `theme.extend.fontFamily`, display + body fonts.
-- `theme.extend.borderRadius`, custom radii (rare; usually defaults).
-- `theme.extend.spacing`, custom spacing (rare).
-- `theme.extend.keyframes` + `theme.extend.animation`, custom motion.
-- `content`, paths Tailwind scans (tells you where the components live).
-- `plugins`, `@tailwindcss/forms`, `@tailwindcss/typography`, etc.
+Common sources:
 
-For Tailwind v4 (CSS-first):
+- Design token files: `tokens.json`, `design-tokens.*`, `theme.json`, Style Dictionary inputs, Theo inputs, or generated token packages.
+- Theme configs: app theme modules, component-library theme files, native/mobile style definitions, package-level theme exports.
+- Stylesheets: global styles, variables, preprocessors, resets, typography files, and platform style resources.
+- Component primitives: buttons, inputs, cards, alerts, badges, navigation, dialogs, toasts, layout shells.
+- Product/brand docs: brand palette, type rules, logo docs, accessibility guidance, Figma exports, or design-system docs.
+
+If several sources conflict, prefer the most intentional source in this order:
+
+1. Committed design token or theme source.
+2. Shared component-library primitives.
+3. Global stylesheet or platform style resources.
+4. Repeated raw values observed in product screens.
+5. External brand docs supplied by the user.
+
+Record conflicts in prose instead of silently choosing values.
+
+### Step 2, Read dominant interface primitives
+
+Read the primitives that users or developers reuse most often. Names vary by stack, so search by role instead of framework:
 
 ```bash
-grep -r "@theme" src/ app/ styles/
-```
-
-The `@theme { --color-*: ...; --font-*: ...; }` block is the source.
-
-### Step 2, Read the dominant atoms to find actual usage
-
-Even with brand tokens in the config, atoms often reach for raw Tailwind palette colors. Read:
-
-```bash
-src/components/atoms/Button.{tsx,ui.tsx}
-src/components/atoms/Input.{tsx,ui.tsx}
-src/components/atoms/Card.{tsx,ui.tsx}
-src/components/atoms/Text.{tsx,ui.tsx}
+rg -n "button|input|card|badge|toast|alert|dialog|modal|nav|shell|layout" src app packages lib components ui
 ```
 
 For each variant, capture:
-- Background fill (e.g., `bg-violet-700`)
-- Text color (e.g., `text-white`)
-- Hover state (e.g., `hover:bg-violet-900`)
-- Padding (e.g., `px-5 py-2.5`)
-- Radius (e.g., `rounded-lg`)
-- Font size (e.g., `text-sm`)
 
-This tells you what the design system *currently produces* vs what the brand tokens *intend*.
+- Background, foreground, border, focus, and hover/pressed/active state.
+- Disabled, loading, destructive, selected, and error states.
+- Padding, gap, radius, border width, elevation/shadow/depth.
+- Font family, size, weight, line height, letter spacing.
+- Motion duration/easing when components animate.
 
-### Step 3, Read the global stylesheet
+This tells you what the design system currently produces versus what the token source intends.
+
+### Step 3, Read global surface rules
+
+Find app-wide defaults and platform-level resources:
 
 ```bash
-cat src/styles/globals.css   # or app/globals.css
-cat src/pages/_document.tsx  # body className tells you the app shell bg
+rg -n "font|background|surface|color|radius|spacing|shadow|elevation|motion|duration|easing" .
 ```
 
-Find:
-- Font-loading method (Typekit `<link>`, `next/font`, `@import`, self-hosted).
-- Body bg / text defaults.
-- Any CSS custom properties (`--surface`, `--main`, etc.) used by atoms.
+Look for:
+
+- Font-loading method and fallback stacks.
+- Body, root, app shell, or window background and text defaults.
+- Light/dark theme switches, high-contrast modes, and density modes.
+- Custom properties, constants, enums, or theme accessors used by primitives.
+- Design assets that affect tokens, such as icons, illustrations, or logo color constraints.
 
 ### Step 4, Decide the semantic palette
 
@@ -81,29 +83,31 @@ Map raw values to semantic token names. The DESIGN.md spec recommends:
 
 | Spec name | Common role |
 |-----------|-------------|
-| `primary` | Action color, buttons, active states |
+| `primary` | Primary action color, selected states |
 | `on-primary` | Text/icon on primary fill |
 | `primary-container` | Soft brand surface, chips, badges, hover |
 | `on-primary-container` | Text on soft surface |
-| `secondary` | Accent, links, highlights |
-| `tertiary` | Marketing surface |
-| `surface` | App body bg |
-| `surface-container-low/medium/high` | Elevation ladder for cards/modals |
+| `secondary` | Secondary action or supporting accent |
+| `tertiary` | Editorial, marketing, or tertiary accent |
+| `surface` | App body/window background |
+| `surface-container-low/medium/high` | Elevation ladder for cards, panels, menus, modals |
 | `on-surface` | Primary text on surface |
 | `on-surface-variant` | Secondary text |
 | `on-surface-muted` | Placeholders, metadata |
-| `outline` | Borders, dividers |
-| `error` / `success` / `warning` / `info` | Semantic |
+| `outline` | Borders, dividers, rings |
+| `error` / `success` / `warning` / `info` | Semantic feedback |
 
-**WCAG check before committing:** any `primary` paired with white text must hit ≥ 4.5:1 contrast. If the brand color is too light (e.g. a pastel), introduce a Material-style split:
-- `primary` = derived darker shade (carries `on-primary: #FFFFFF`)
-- `primary-container` = the soft brand color (carries dark `on-primary-container`)
+**WCAG check before committing:** any foreground/background pair used for normal text must hit >= 4.5:1 contrast. If a brand color is too light or too dark for a role, introduce a role split:
 
-This is the most common adjustment when coming from a "soft brand palette" project.
+- `primary` = accessible action color.
+- `primary-container` = softer brand surface.
+- `on-primary` and `on-primary-container` = readable foregrounds for each context.
+
+This preserves brand intent without making inaccessible tokens normative.
 
 ### Step 5, Define the typography scale
 
-Most projects haven't codified one, they reach for `text-xs` / `text-sm` / `text-base` / `text-lg` / `text-xl` ad hoc. The skill's job is to **codify the scale this file commits to**, even if it didn't exist before.
+If the project already codifies typography, use those names and values. If the project relies on repeated raw values, codify the scale this file commits to and mark it as "newly codified" in prose.
 
 Recommended levels (matches the spec's non-normative naming):
 
@@ -125,11 +129,11 @@ typography:
   numeric-tabular: { fontFamily: <body>, fontSize: 14px, fontWeight: 500, lineHeight: 1, fontFeature: '"tnum" 1' }
 ```
 
-If the project ships dynamic numbers (counters, prices, timers), always include `numeric-tabular` with `fontFeature: '"tnum" 1'`.
+If the project ships dynamic numbers such as counters, prices, or timers, include `numeric-tabular` with `fontFeature: '"tnum" 1'`.
 
-### Step 6, Spacing & radius
+### Step 6, Spacing, radius, elevation, and motion
 
-Tailwind's defaults are fine; document the named anchors the project actually uses:
+Document the named anchors the project actually uses. Start from existing token names when present; otherwise name repeated values by role:
 
 ```yaml
 rounded:
@@ -147,40 +151,40 @@ spacing:
   lg: 24px
   xl: 32px
   xxl: 48px
-  # Atom anchors (observed in code), name them so future changes have a referent
-  input-padding: 10px         # Tailwind p-2.5
-  button-medium-x: 20px       # px-5
-  button-medium-y: 10px       # py-2.5
-  modal-padding: 16px         # p-4
-  modal-padding-md: 24px      # md:p-6
-  card-gap: 16px              # gap-4
+  input-padding: 10px
+  button-medium-x: 20px
+  button-medium-y: 10px
+  modal-padding: 16px
+  card-gap: 16px
 ```
+
+If the spec or linter version in use supports elevation or motion tokens, include them only when the project has clear source values. Otherwise document those choices in body prose under "Elevation & Depth" and "Components".
 
 ### Step 7, Components
 
-Define every visual atom that varies by tokens. **Reference tokens, never inline hex.** Use `{colors.primary}`, `{rounded.lg}`, etc.
+Define every visual primitive that varies by tokens. **Reference tokens, never inline hex.** Use `{colors.primary}`, `{rounded.lg}`, `{typography.label-md}`, and equivalent token references.
 
-Minimum component coverage (the linter flags orphan colors not referenced anywhere):
+Minimum component coverage when these roles exist:
 
 - `button-primary` + `-hover` + `-disabled`
 - `button-secondary`
 - `button-outlined`
-- `button-plain` (text-only)
+- `button-plain` or link-style action
 - `button-danger`
-- `button-tiny` (small variant for toolbars)
 - `input-text`
 - `card`
 - `badge`
 - `toast`
-- `app-shell` (body)
+- `app-shell`
 - `divider`
-- `alert-success` / `alert-warning` / `alert-info` / `alert-error` (when those colors exist)
+- `alert-success` / `alert-warning` / `alert-info` / `alert-error`
+- Navigation item, tab, menu item, dialog, or sheet when those are core primitives
 
 Every defined color token must be referenced by at least one component, otherwise the linter warns "orphaned-tokens".
 
 ### Step 8, Sections in canonical order
 
-```
+```text
 1. Overview                          (also: "Brand & Style")
 2. Colors
 3. Typography
@@ -191,32 +195,34 @@ Every defined color token must be referenced by at least one component, otherwis
 8. Do's and Don'ts
 ```
 
-Sections can be omitted, but those present must appear in this order. Don't reorder; the linter checks.
+Sections can be omitted, but those present must appear in this order. Do not reorder; the linter checks.
 
-### Step 9, The Tailwind bridge
+### Step 9, Implementation mapping
 
-Add a final section bridging tokens → Tailwind utility classes. This is what makes the file Tailwind-focused (the spec is framework-agnostic; the bridge is project-specific):
+Add a final section bridging DESIGN.md tokens back to the project's actual implementation. Name the real source files, package names, generation commands, or consuming APIs:
 
 ```markdown
-## Tailwind mapping
+## Implementation mapping
 
-How tokens flow into the actual Tailwind config:
+How tokens flow into the implementation:
 
-| Token group | Tailwind path | Class prefix |
-|-------------|---------------|--------------|
-| `colors.*` | `theme.extend.colors` | `bg-`, `text-`, `border-`, `ring-` |
-| `typography.<name>.fontSize` | `theme.extend.fontSize` | `text-<name>` |
-| `typography.<name>.fontFamily` | `theme.extend.fontFamily` | `font-<family>` |
-| `rounded.<size>` | `theme.extend.borderRadius` | `rounded-<size>` |
-| `spacing.<name>` | `theme.extend.spacing` | `p-<name>`, `m-<name>`, `gap-<name>` |
+| Token group | Source of truth | Consumers |
+|-------------|-----------------|-----------|
+| `colors.*` | `<design-source>` | Buttons, alerts, surfaces, focus states |
+| `typography.*` | `<font/theme source>` | Headings, body copy, labels, numeric counters |
+| `rounded.*` | `<theme/style source>` | Inputs, cards, dialogs, badges |
+| `spacing.*` | `<theme/style source>` | Layout gaps, padding, density rules |
+| Component roles | `<component primitive files>` | Product screens, examples, stories |
 
-Convergence loop: when this file changes, regenerate `tailwind.config.ts`'s `theme.extend`:
+Convergence loop:
 
-\`\`\`bash
-npx @google/design.md export --format tailwind docs/DESIGN.md > tmp/tailwind.theme.json
-# diff against current theme.extend in tailwind.config.ts and apply
-\`\`\`
+1. Update the source token/theme files.
+2. Regenerate any platform-specific theme artifacts if the project has a generator.
+3. Update `docs/DESIGN.md` from the same source values.
+4. Run `npx @google/design.md lint docs/DESIGN.md`.
 ```
+
+If the project supports exporting DESIGN.md into a platform theme, document that command here. Do not require an export path when the project has no exporter.
 
 ### Step 10, Lint
 
@@ -228,11 +234,11 @@ Fix every error and every warning except `info`-level. Common fixes:
 
 | Finding | Fix |
 |---------|-----|
-| `contrast-ratio` warning | Split the brand color into `primary` + `primary-container` (Material pattern). Re-test. |
-| `orphaned-tokens` warning | Add a component that references the token, OR delete the token if it's truly unused. |
+| `contrast-ratio` warning | Split the brand color into accessible action and container roles. Re-test. |
+| `orphaned-tokens` warning | Add a component that references the token, or delete the token if it is truly unused. |
 | `missing-primary` warning | Define `colors.primary`. |
 | `missing-typography` warning | Define at least one `typography.*` entry. |
-| `broken-ref` error | A `{path.to.token}` reference doesn't resolve. Check the path. |
+| `broken-ref` error | A `{path.to.token}` reference does not resolve. Check the path. |
 | `section-order` warning | Reorder sections to match the canonical order. |
 
 Re-lint until clean.
@@ -282,7 +288,7 @@ spacing:
   lg: 24px
   xl: 32px
   xxl: 48px
-  # + atom anchors
+  # + repeated role anchors from the implementation
 
 components:
   button-primary:
@@ -291,12 +297,12 @@ components:
     typography: "{typography.label-lg}"
     rounded: "{rounded.lg}"
     padding: 10px 20px
-  # + every other atom variant
+  # + every other primitive variant
 ---
 ```
 
 ## Body section template
 
-Each section is short prose followed by token-derivation notes where useful. Don't restate the token values, they're already in the YAML; instead explain *why* and *when* to use them.
+Each section is short prose followed by token-derivation notes where useful. Do not restate the token values; they are already in the YAML. Explain why the tokens exist, when to use them, and where implementation drift remains.
 
 For an exemplar that lints clean, see the spec's reference samples at [google-labs-code/design.md](https://github.com/google-labs-code/design.md).

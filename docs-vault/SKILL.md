@@ -1,17 +1,17 @@
 ---
 name: docs-vault
-description: Build a complete agent-readable Obsidian vault for a Tailwind-based web codebase, eight flat top-level domain docs (PRODUCT/RUNTIME/ARCHITECTURE/DATA/AUTH/ENGINEERING/TESTING/DESIGN), folder-level deep specs, bidirectional wikilinks for graph navigation, and a `DESIGN.md` that conforms to the google-labs-code/design.md spec with tokens derived from `tailwind.config.{ts,js}` or the v4 `@theme` block. Use when asked to "set up project docs", "write project documentation", "create an Obsidian vault from this repo", "document this codebase for agents", "add a DESIGN.md", or "make the design system machine-readable".
+description: Build a complete agent-readable Obsidian vault for any software codebase, eight flat top-level domain docs (PRODUCT/RUNTIME/ARCHITECTURE/DATA/AUTH/ENGINEERING/TESTING/DESIGN), folder-level deep specs, bidirectional wikilinks for graph navigation, and a `DESIGN.md` that conforms to the google-labs-code/design.md spec with tokens derived from the project's existing design sources. Use when asked to "set up project docs", "write project documentation", "create an Obsidian vault from this repo", "document this codebase for agents", "add a DESIGN.md", or "make the design system machine-readable".
 ---
 
 # docs-vault
 
 Build a `docs/` Obsidian vault that's both an Obsidian vault (graph view, backlinks, color-coded tags) and a flat GitHub-readable index. Pair it with a `DESIGN.md` that follows the [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec so the design system becomes machine-readable.
 
-TRIGGER when: bootstrapping documentation on a Tailwind-based web project (Next.js / Remix / TanStack Start / Vite + React), introducing a flat top-level domain-doc pattern over an existing tangle of docs, or making the design system machine-readable for agents.
+TRIGGER when: bootstrapping documentation for an application, service, library, platform, or multi-package repository; introducing a flat top-level domain-doc pattern over an existing tangle of docs; or making the design system machine-readable for agents.
 
-> **Stack assumed.** TypeScript + Tailwind (v3 or v4). The DESIGN.md token derivation uses `tailwind.config.{ts,js}` (v3) or the `@theme` block in `app.css` (v4). Patterns transfer to non-Tailwind projects but the derivation step changes. Framework can be Next.js, Remix, Vite, TanStack Start, etc., the structure here is framework-agnostic.
+> **Stack assumed.** None. Inspect the repository first and adapt the docs to the language, framework, package manager, runtime, UI layer, infrastructure, and test stack actually present.
 
-> **Notation.** `<project>`, `docs/`, `tailwind.config.{ts,js}`, `app.css`, `<NNNN>` are placeholders. Resolve to the project's actual project name, root, Tailwind config location, and ADR numbering scheme. Frontmatter examples (`aliases`, `tags`) follow Obsidian conventions, adjust to whatever tag taxonomy your team prefers.
+> **Notation.** `<project>`, `docs/`, `<design-source>`, `<NNNN>` are placeholders. Resolve to the project's actual project name, root, design token/theme source, and ADR numbering scheme. Frontmatter examples (`aliases`, `tags`) follow Obsidian conventions, adjust to whatever tag taxonomy your team prefers.
 
 > **Precedence.** Project rules (CLAUDE.md / AGENTS.md / contributing guide) win. This skill produces those files for projects that don't have them; if they already exist, extend rather than replace.
 
@@ -47,9 +47,9 @@ docs/
 ├── DESIGN.md                   ┘  ← spec-compliant (google-labs-code/design.md)
 │
 ├── architecture/               deeper specs per domain
-├── conventions/                rules per layer (TS, Tailwind, fetchers, ...)
+├── conventions/                rules per layer (language, styling, data access, ...)
 ├── workflows/                  step recipes (new-domain, diagnose-bug, ...)
-├── quality/                    perf, a11y, SEO, sec, design polish
+├── quality/                    perf, accessibility, reliability, security, design polish
 ├── decisions/                  ADRs (lazy)
 └── upgrades/                   gap analysis vs skill defaults
 ```
@@ -60,12 +60,12 @@ docs/
 
 Before writing a single doc, read enough to map the project:
 
-- **Routes**, list the pages/routes; identify public vs authed surfaces.
-- **Stack**, `package.json` (framework + key deps), `tsconfig.json`, `tailwind.config.{ts,js}` or `@theme` block, `prisma/schema.prisma` if any DB.
-- **Entry points**, `_app.tsx` / `app/layout.tsx` / `main.tsx` (providers, global CSS).
-- **Components**, top-level `src/components/` layout (atoms/molecules/organisms or flat).
-- **Data layer**, `src/server/`, `src/queries/`, `src/hooks/`, `src/schemas/`, `src/utils/fetcher.ts` (or equivalents).
-- **CI / tooling**, `.github/workflows/`, `.husky/`, eslint/prettier configs.
+- **Surfaces**, list screens, routes, CLIs, APIs, jobs, packages, or user-facing entry points; identify public vs restricted surfaces.
+- **Stack**, manifest files, language/runtime config, dependency manager files, workspace config, database schemas, infrastructure manifests, and design token/theme sources if present.
+- **Entry points**, app/server/CLI/library entry files, provider/bootstrap files, global styles, config loaders, and deployment adapters.
+- **Interface primitives**, components, views, screens, templates, API resources, command handlers, or other primary user/developer-facing building blocks.
+- **Data layer**, persistence, validation, caching, service clients, query modules, schema files, and equivalent abstractions.
+- **CI / tooling**, workflow files, hooks, lint/format/test/build configs, release automation.
 - **Existing docs**, `README.md`, anything in `docs/`. **Don't overwrite.** If they exist, extend.
 
 Use Glob + Grep + Read in parallel. Don't open every file, open enough to fill out PRODUCT/RUNTIME/ARCHITECTURE.
@@ -82,12 +82,12 @@ Order, and what each must cover:
 
 | File | Covers | Lines target |
 |------|--------|--------------|
-| `PRODUCT.md` | Audiences (roles), surfaces (routes), domain glossary, revenue model, open questions | 60-120 |
-| `RUNTIME.md` | Stack, services, env vars, local setup, all `npm`/`pnpm`/`bun` commands, deploy target | 80-150 |
-| `ARCHITECTURE.md` | Code layout tree, canonical data flow, state boundaries (server cache vs UI state) | 50-100 |
+| `PRODUCT.md` | Audiences (roles), surfaces (screens/routes/APIs/commands), domain glossary, revenue model, open questions | 60-120 |
+| `RUNTIME.md` | Stack, services, env vars, local setup, available commands, deploy target | 80-150 |
+| `ARCHITECTURE.md` | Code layout tree, canonical data flow, state boundaries, ownership boundaries | 50-100 |
 | `DATA.md` | DB choice, ORM, validation lib, query cache, layers, naming conventions | 70-150 |
-| `AUTH.md` | Auth lib, session shape, role gating, server vs client read patterns | 40-80 |
-| `ENGINEERING.md` | Daily commands, lint/format rules, TS config, Husky, Git/PR style, CI | 60-110 |
+| `AUTH.md` | Auth/session system, credential shape, role gating, access patterns | 40-80 |
+| `ENGINEERING.md` | Daily commands, lint/format rules, language config, hooks, Git/PR style, CI | 60-110 |
 | `TESTING.md` | Test runner, co-location, behavior-over-impl, mocking guidance, coverage | 50-90 |
 | `DESIGN.md` | Spec-compliant. See [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md). | 200-400 |
 
@@ -142,7 +142,7 @@ For Obsidian's graph + backlinks panel to work well:
 Follow [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md). Hard requirements:
 
 1. **YAML frontmatter** with the canonical token schema (`colors`, `typography`, `rounded`, `spacing`, `components`).
-2. **Token values derived from `tailwind.config.{ts,js}`** or `@theme` (v4), not invented. The template explains the derivation step-by-step.
+2. **Token values derived from existing project sources** (design token files, theme configs, CSS variables, component styles, native/mobile style definitions, Figma exports, brand docs), not invented. The template explains the derivation step-by-step.
 3. **Sections in canonical order:** Overview → Colors → Typography → Layout → Elevation & Depth → Shapes → Components → Do's and Don'ts.
 4. **`primary` must pass WCAG AA contrast against `on-primary`** (4.5:1). If the brand color is too light/dark, introduce a `primary` / `primary-container` split (Material-style).
 5. **Component definitions reference tokens** via `{colors.primary}`, `{rounded.lg}`, `{typography.label-md}`. No hex values inside the `components:` block except for `transparent` and `rgba(...)`.
@@ -177,9 +177,9 @@ After the vault exists, update / create:
 
 - **Never** put SKILL.md backlinks (`🌐 Live skill: [name](.../SKILL.md)`) in vault docs, every link to a `SKILL.md` becomes a "SKILL" node in the graph view, clustering visual noise. Reference skills as plain code-fenced text (`` `zod-prisma-tanstack` ``) and point readers at `skills-lock.json` once at the top level.
 - **Never** maintain a parallel skills index inside the vault. `skills-lock.json` is the inventory. The relevant skill name is mentioned inline in the doc that distills it.
-- **Never** invent token values for `DESIGN.md`, derive from `tailwind.config.{ts,js}` / `@theme` and call out drift in prose.
+- **Never** invent token values for `DESIGN.md`, derive from the project's existing design sources and call out drift in prose.
 - **Never** skip the `↑ up-link` in folder docs, the graph becomes one-directional and the backlinks panel becomes the only path back up.
-- **Never** use `transition: all`, `text-` ad-hoc sizes, or hardcoded brand hexes outside `tailwind.config`, flag in the DESIGN.md "Do's and Don'ts" so agents reading the file produce code that matches.
+- **Never** use broad transitions, ad-hoc type sizes, or hardcoded brand values outside the project's token/theme source; flag those in the DESIGN.md "Do's and Don'ts" so agents reading the file produce code that matches.
 - **Never** read `.env` / `.env.local` while writing docs. Read `.env.example` and ask the user for live values.
 
 ## Anti-patterns
@@ -209,4 +209,4 @@ After the vault exists, update / create:
 ## Reference files
 
 - [VAULT-STRUCTURE.md](VAULT-STRUCTURE.md), full file inventory + per-file scaffolds (`.obsidian/*.json`, top-level templates, folder doc templates)
-- [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md), Tailwind-focused DESIGN.md template + step-by-step token derivation from `tailwind.config.{ts,js}` / `@theme`
+- [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md), general-purpose DESIGN.md template + step-by-step token derivation from the project's existing design sources

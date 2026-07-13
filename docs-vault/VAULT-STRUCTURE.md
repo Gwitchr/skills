@@ -143,7 +143,7 @@ External entry from repo root: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLA
 | [[ARCHITECTURE]] | Code layout, data flow, state boundary |
 | [[DATA]] | DB + validation + cache layer |
 | [[AUTH]] | Auth, sessions, role gates |
-| [[ENGINEERING]] | Lint, format, TS config, Husky, PR flow |
+| [[ENGINEERING]] | Lint, format, language config, hooks, PR flow |
 | [[TESTING]] | Test runner, strategy, coverage |
 | [[DESIGN]] | Color, type, spacing, components, brand |
 
@@ -151,13 +151,13 @@ External entry from repo root: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLA
 - [[overview]] · [[data-layer]] · [[components]] · [[state-*]] · [[auth-session]] · ...
 
 ### Conventions
-- [[typescript]] · [[styling-tailwind]] · [[classnames]] · ...
+- [[language-style]] · [[styling-system]] · [[naming]] · ...
 
 ### Workflows
 - [[new-domain]] · [[new-component]] · [[diagnose-bug]] · ...
 
 ### Quality
-- [[core-web-vitals]] · [[performance]] · [[accessibility]] · [[seo]] · [[security]]
+- [[performance]] · [[accessibility]] · [[security]] · [[reliability]] · [[operability]]
 - [[design-polish]] · [[audit-checklist]]
 
 ### Decisions
@@ -241,7 +241,7 @@ docs/
 ├── architecture/     how parts fit (deeper specs)
 ├── conventions/      rules per layer
 ├── workflows/        step recipes
-├── quality/          perf, a11y, SEO, sec, design polish
+├── quality/          perf, accessibility, reliability, security, design polish
 ├── decisions/        ADRs (lazy)
 └── upgrades/         gap analysis vs skill defaults
 \`\`\`
@@ -445,10 +445,10 @@ Use this when wiring `↑ See also` lines:
 | `architecture/state-*` | `[[ARCHITECTURE]]` |
 | `architecture/i18n-*` | `[[DATA]]` · `[[ARCHITECTURE]]` |
 | `architecture/infrastructure` | `[[RUNTIME]]` · `[[ARCHITECTURE]]` |
-| `conventions/typescript` | `[[ENGINEERING]]` · `[[ARCHITECTURE]]` |
-| `conventions/styling-tailwind` | `[[DESIGN]]` |
-| `conventions/classnames` · `variants` | `[[DESIGN]]` · `[[ENGINEERING]]` |
-| `conventions/api-routes` · `server-actions` · `fetchers` · `query-*` · `schemas-*` · `hooks-*` | `[[DATA]]` |
+| `conventions/language-style` | `[[ENGINEERING]]` · `[[ARCHITECTURE]]` |
+| `conventions/styling-system` | `[[DESIGN]]` |
+| `conventions/naming` · `variants` | `[[DESIGN]]` · `[[ENGINEERING]]` |
+| `conventions/api-resources` · `background-jobs` · `fetchers` · `query-*` · `schemas-*` · `hooks-*` | `[[DATA]]` |
 | `conventions/forms` | `[[DATA]]` · `[[DESIGN]]` |
 | `conventions/icons` | `[[DESIGN]]` |
 | `conventions/images` | `[[DESIGN]]` · `[[RUNTIME]]` (image host allowlist) |
@@ -456,14 +456,14 @@ Use this when wiring `↑ See also` lines:
 | `conventions/git-and-pr` | `[[ENGINEERING]]` |
 | `workflows/new-domain` | `[[DATA]]` · `[[ENGINEERING]]` |
 | `workflows/new-component` | `[[DESIGN]]` · `[[ARCHITECTURE]]` · `[[ENGINEERING]]` |
-| `workflows/new-page` | `[[ARCHITECTURE]]` · `[[ENGINEERING]]` |
+| `workflows/new-surface` | `[[ARCHITECTURE]]` · `[[ENGINEERING]]` |
 | `workflows/diagnose-*` · `tdd` | `[[TESTING]]` · `[[ENGINEERING]]` |
 | `workflows/triage-*` · `write-prd` · `grill` | `[[PRODUCT]]` · `[[ENGINEERING]]` |
 | `workflows/write-skill` · `ultrareview` | `[[ENGINEERING]]` |
-| `quality/core-web-vitals` | `[[RUNTIME]]` · `[[DESIGN]]` |
+| `quality/performance-budget` | `[[RUNTIME]]` · `[[DESIGN]]` |
 | `quality/performance` | `[[RUNTIME]]` · `[[ENGINEERING]]` |
 | `quality/accessibility` | `[[DESIGN]]` · `[[ENGINEERING]]` |
-| `quality/seo` | `[[PRODUCT]]` · `[[RUNTIME]]` |
+| `quality/discoverability` | `[[PRODUCT]]` · `[[RUNTIME]]` |
 | `quality/security` | `[[RUNTIME]]` · `[[AUTH]]` · `[[ENGINEERING]]` |
 | `quality/audit-checklist` | `[[ENGINEERING]]` · `[[RUNTIME]]` |
 | `quality/design-polish` | `[[DESIGN]]` |
