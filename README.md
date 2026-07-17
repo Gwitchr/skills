@@ -13,6 +13,7 @@ The skills below are **interlocking but independent**, pick the ones that match 
 | [`content-authoring`](content-authoring/SKILL.md) | Tiptap v3 + markdown content authoring on Prisma + MongoDB. Markdown vs editor-JSON vs MDX storage trade-offs, locale strategy, sanitization, image upload, AI-assisted authoring, real-time collab via Y.js + Hocuspocus. |
 | [`image-storage`](image-storage/SKILL.md) | File-upload patterns on top of S3 + CloudFront, server-proxied data-URL uploads, MIME and size validation, filename sanitization, create-row-first ordering, AI-generated image flow. Builds on `auth-stack/storage-s3.md`. |
 | [`docs-vault`](docs-vault/SKILL.md) | Build a `docs/` Obsidian vault that doubles as a GitHub-readable index. Eight flat top-level domain docs (PRODUCT / RUNTIME / ARCHITECTURE / DATA / AUTH / ENGINEERING / TESTING / DESIGN), bidirectional wikilinks, graph color groups, and a spec-compliant DESIGN.md derived from `tailwind.config.{ts,js}` or the v4 `@theme` block. |
+| [`deslop`](deslop/SKILL.md) | Plain-language enforcement for prose deliverables (PR text, docs, reports, justifications). Bans em dashes, filler intensifiers, stock metaphors, sycophantic openers, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete fact. Requires parenthetical glosses on jargon, [Unverified]/[Speculation] labels on unsourced claims, and a trust hierarchy for sources. Includes a scan-and-rewrite process for existing text. |
 
 ## Conventions every skill shares
 
