@@ -66,13 +66,11 @@ No `—`, no `–`, no double hyphen standing in for one. Replace with a period,
 
 These words hide the actual fact behind an abstraction. Replace them with what happened.
 
-| Banned | Instead |
-|--------|---------|
-| drive / drives / driving ("two strengths drive the verdict") | Name what does the thing directly: "the verdict comes down to two strengths", "the failing test is the reason" |
-| gap / gaps ("coverage gap", "deliverable gaps") | Name the missing thing: "did not add the type export", "left 7 tests failing", "includes 3 scenarios when the spec asked for several" |
-| win / wins ("a consistency win", "a small win") | Name the concrete thing: "it also updates Mutex.acquire", "it removes the dead field" |
-| sell / sells / oversell / oversells ("the writeup oversells the change") | State the mismatch plainly: "the writeup claims X, but the diff only does Y" |
-| discipline / disciplined (as a stand-in for engineering judgment) | Use "implementation" when describing how cleanly the code is built |
+- **drive / drives / driving** ("two strengths drive the verdict"). Name what does the thing directly: "the verdict comes down to two strengths", "the failing test is the reason".
+- **gap / gaps** ("coverage gap", "deliverable gaps"). Name the missing thing: "did not add the type export", "left 7 tests failing", "includes 3 scenarios when the spec asked for several".
+- **win / wins** ("a consistency win", "a small win"). Name the concrete thing: "it also updates Mutex.acquire", "it removes the dead field".
+- **sell / sells / oversell / oversells** ("the writeup oversells the change"). State the mismatch plainly: "the writeup claims X, but the diff only does Y".
+- **discipline / disciplined** (as a stand-in for engineering judgment). Use "implementation" when describing how cleanly the code is built.
 
 ### 4. Gloss every technical term
 
