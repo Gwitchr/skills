@@ -60,6 +60,20 @@ No `—`, no `–`, no double hyphen standing in for one. Replace with a period,
 
 **Contrast frames.** The "it's not X, it's Y" device (contrastive negation) and its variants: "this isn't about X, it's about Y", "not because X, but because Y", "the problem isn't X. The problem is Y." Once per document it can carry a point; as a recurring rhythm it is a tell. State what the thing is directly, and mention what it is not only when the reader would otherwise assume the wrong thing.
 
+**Cadence and rhetorical clichés.** Structural tells, not single words. Each is tolerable once; as a habit they mark generated text. Delete the frame and state the point plainly.
+
+- **"No X, no Y" chains.** Two or more "no ..." items in a row ("No sign-ups, no downloads, no hassle"). Rewrite as a plain sentence or a normal list.
+- **"Did not X, did not Y" chains.** The same with "did not" or "didn't" ("Did not flinch, did not blink, did not reach for the pen").
+- **"Don't call it X, call it Y."** A negated verb plus "it", then the same verb plus "it" ("Don't call it a rewrite, call it a rescue"). Say what the thing is.
+- **"That's the whole point / game / thing."** Drop the frame; give the point itself.
+- **"X is the entire point / game / business model"** and its flip **"The entire point is ..."**. Name X directly.
+- **"Sit with that (for a moment)"**, "sit with the discomfort". Therapist voice; delete it.
+- **"You already know"** (the answer, what to do, or standing alone). Delete it and state the thing.
+- **"The X is real, and/not ..."** ("The improvement is real, and it's not subtle"). State the measured effect instead (rule 6).
+- **"The punchline is ..."**, "the punchline:", "the punchline?". Say the thing directly.
+- **"It's worth naming that ..."**, "that loss is worth naming", "Worth naming:". Delete it.
+- **"That's not nothing."** Say what the thing is worth.
+
 **Sycophancy.** Never open with Certainly!, Of course!, Great question!, Absolutely!. The same ban applies mid-response: no "you're totally right", "great point", "excellent catch", "that's a fair point". When the reader or user is right, act on the correction; do not praise it.
 
 ### 3. Name the concrete thing
