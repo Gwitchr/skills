@@ -1,6 +1,6 @@
 ---
 name: deslop
-description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, sycophantic openers, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing. Requires a parenthetical plain-English gloss on every technical term, [Unverified]/[Speculation] labels on any claim that is not sourced, claims stated once at true strength (no overselling, no hedge stacks, no circling), and structural restraint (prose over bullets over tables, header and nesting budgets, bold as label only). Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
+description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, sycophantic openers, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing. Requires plain language that assumes no domain knowledge (glosses on technical terms, acronyms expanded on first use, no unexplained jargon unless the reader's level is specified), [Unverified]/[Speculation] labels on any claim that is not sourced, claims stated once at true strength (no overselling, no hedge stacks, no circling), and structural restraint (prose over bullets over tables, header and nesting budgets, bold as label only). Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
 ---
 
 # deslop
@@ -86,13 +86,17 @@ These words hide the actual fact behind an abstraction. Replace them with what h
 - **sell / sells / oversell / oversells** ("the writeup oversells the change"). State the mismatch plainly: "the writeup claims X, but the diff only does Y".
 - **discipline / disciplined** (as a stand-in for engineering judgment). Use "implementation" when describing how cleanly the code is built.
 
-### 4. Gloss every technical term
+### 4. Assume no domain knowledge
 
-Assume the reader is not an expert in the stack and does not know domain vocabulary. Any time a term would force them to look something up, follow it with a short plain-English explanation in parentheses on the same line. This applies to concurrency, transactions, locking, isolation, partial indexes, event loops, decorators, and any domain- or framework-specific term.
+Assume the reader does not know the stack, the domain, or its vocabulary. Unless the user specifies the reader's expertise level, write for someone who lacks it: do not lean on acronyms, abbreviations, lingo, jargon, or domain-specific knowledge as if they were shared. Where a simpler word or a short explanation does the job, never reach for the complicated one.
+
+**Gloss technical terms.** Any time a term would force the reader to look something up, follow it with a short plain-English explanation in parentheses on the same line. This applies to concurrency, transactions, locking, isolation, partial indexes, event loops, decorators, and any domain- or framework-specific term.
 
 - **Before:** "The job uses an audio overlap window." **After:** "The job uses an audio overlap window (it re-feeds a small slice of the previous audio into the next chunk so the model has context across the boundary)."
 - **Before:** "The migration adds a partial index." **After:** "The migration adds a partial index (an index that only covers rows matching a condition, so it stays small)."
 - **Before:** "Writes are wrapped in a transaction." **After:** "Writes are wrapped in a transaction (either all of the writes happen or none do)."
+
+**Expand acronyms and abbreviations on first use.** Write the full form once with the short form in parentheses, then use the short form after: "time to live (TTL)", "role-based access control (RBAC)". A short form being common in your field does not make it shared with the reader.
 
 Gloss a term the first time it appears in a document, not on every repeat. Keep the gloss to one clause; if the explanation needs more than a line, the surrounding prose should explain it instead.
 
@@ -156,7 +160,7 @@ When asked to deslop existing text:
 
 1. **Scan for em dashes first.** They are the most reliable tell and mechanical to find (`—`, `–`, ` -- `).
 2. **Sweep the banned lists** in Hard rules order. For each hit, decide: delete (filler), swap for the plain word (stock verbs), or rewrite around the concrete fact (abstraction words).
-3. **Gloss jargon.** Find every technical term a non-expert reader would have to look up and add its parenthetical explanation (Hard rule 4).
+3. **Assume no domain knowledge.** Find every technical term, acronym, and abbreviation a non-expert reader would have to look up; gloss the terms and expand the short forms on first use (Hard rule 4).
 4. **Apply the Verification Rules.** Label anything unverified, timestamp versions, and strip absolute claims (prevents, guarantees, will never) that have no source.
 5. **Check the structure.** Demote tables that should be bullets and bullets that should be prose, delete headings without enough content under them, flatten nesting past two levels, move prose out of table cells and diagram nodes into annotations below them, and cut closing summaries that restate the document.
 6. **Reread each rewritten sentence aloud-style.** If the fix produced a fragment or a comma splice that reads worse than the original, restructure the sentence instead of patching the word.
