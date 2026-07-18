@@ -90,11 +90,9 @@ These words hide the actual fact behind an abstraction. Replace them with what h
 
 Assume the reader is not an expert in the stack and does not know domain vocabulary. Any time a term would force them to look something up, follow it with a short plain-English explanation in parentheses on the same line. This applies to concurrency, transactions, locking, isolation, partial indexes, event loops, decorators, and any domain- or framework-specific term.
 
-| Before | After |
-|--------|-------|
-| `The job uses an audio overlap window.` | `The job uses an audio overlap window (it re-feeds a small slice of the previous audio into the next chunk so the model has context across the boundary).` |
-| `The migration adds a partial index.` | `The migration adds a partial index (an index that only covers rows matching a condition, so it stays small).` |
-| `Writes are wrapped in a transaction.` | `Writes are wrapped in a transaction (either all of the writes happen or none do).` |
+- **Before:** "The job uses an audio overlap window." **After:** "The job uses an audio overlap window (it re-feeds a small slice of the previous audio into the next chunk so the model has context across the boundary)."
+- **Before:** "The migration adds a partial index." **After:** "The migration adds a partial index (an index that only covers rows matching a condition, so it stays small)."
+- **Before:** "Writes are wrapped in a transaction." **After:** "Writes are wrapped in a transaction (either all of the writes happen or none do)."
 
 Gloss a term the first time it appears in a document, not on every repeat. Keep the gloss to one clause; if the explanation needs more than a line, the surrounding prose should explain it instead.
 
@@ -124,13 +122,31 @@ Three failure modes, one rule: say exactly what you can support, and say it once
 
 Formatting is part of the prose. Decide the document's shape before writing: how many sections it needs, how deep the hierarchy goes, and what belongs in prose versus a list.
 
-- **Prose is the default.** Use bullets only for parallel, enumerable items. Use a table only when both rows and columns carry meaning (several items compared across the same attributes). A two-column table whose second column is free text is a bulleted list in costume; a bulleted list of full sentences with no parallel shape is a paragraph in costume.
+- **Prose is the default.** Use bullets only for parallel, enumerable items. Use a table only when every row is one entity carrying two or more short, non-prose values (a number, a name, a status, a short label) under shared columns, so the reader scans down a column to compare. If any column holds sentences, or a row has only one value worth showing, it is not tabular data: a two-column table whose second column is free text is a bulleted list in costume, and a bulleted list of full sentences with no parallel shape is a paragraph in costume.
 - **Headers earn their place.** A heading needs at least a paragraph beneath it and a document long enough to need navigation. Never two headings in a row with nothing between them, and never a heading over a single sentence.
 - **Cap the hierarchy before writing.** Decide how many nesting levels the document actually needs; two heading levels and two bullet levels cover almost any document. Needing a third level means the grouping is wrong, so restructure instead of nesting deeper.
 - **Balance sections.** Sections at the same level should carry comparable weight. A three-line section beside a sixty-line sibling means merge the small one or split the large one.
 - **Keep one narrative.** The document reads top to bottom as a single argument, and each section advances it. If a section could be deleted without breaking the argument, delete it.
 - **Bold marks labels, not emphasis.** Bold the term a list item defines or a key the reader scans for; carry emphasis with word choice and sentence position. No exclamation marks in technical prose, no emoji, no punctuation doing decorative work.
 - **Diagrams and tables hold data; annotations hold explanation.** Inside a table cell or a diagram node, put only the label or value, kept short enough to read at a glance. Any supporting explanation goes directly below the table or diagram as an annotation (a caption, a footnote line, or a short paragraph), never crammed into cells or node text. A table whose cells wrap into multi-line prose or a diagram whose nodes hold full sentences has failed at presentation; move the prose to the annotation and shrink the structure back to labels.
+
+### Choosing a comparison format
+
+A before/after table is the right format only when the reader needs exact values for two states of the same entities. This tree picks the format; do not default to a table because the data happens to have two states.
+
+```mermaid
+flowchart TD
+    A[Comparing two states of<br/>the same metrics or entities?] -->|No| B[Standard table, list,<br/>or chart for the task]
+    A -->|Yes| C[Need exact values<br/>per row?]
+    C -->|Yes| D[Comparison stays<br/>narrow and readable?]
+    D -->|Yes| E[Before/after table]
+    D -->|No| F[Split into smaller tables,<br/>or reformat for small screens]
+    C -->|No| G[Does trend matter<br/>more than endpoints?]
+    G -->|Yes| H[Line chart or<br/>table with sparklines]
+    G -->|No| I[Cards or concise<br/>narrative]
+```
+
+When the tree lands on a before/after table (node E): keep the Before and After columns adjacent, add an explicit Delta column so the reader does not compute the difference, and use color or icons only as redundant cues on top of the values, never as the only signal.
 
 ---
 
