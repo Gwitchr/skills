@@ -1,6 +1,6 @@
 ---
 name: deslop
-description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, sycophantic openers, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing. Requires plain language that assumes no domain knowledge (glosses on technical terms, acronyms expanded on first use, no unexplained jargon unless the reader's level is specified), [Unverified]/[Speculation] labels on any claim that is not sourced, claims stated once at true strength (no overselling, no hedge stacks, no circling), and structural restraint (prose over bullets over tables, header and nesting budgets, bold as label only). Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
+description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, sycophantic openers, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing. Requires plain language that assumes no domain knowledge (glosses on technical terms, acronyms expanded on first use, no unexplained jargon unless the reader's level is specified), [Unverified]/[Speculation] labels on any claim that is not sourced, claims stated once at true strength (no overselling, no hedge stacks, no circling), and structural restraint (prose over bullets over tables, header and nesting budgets, bold as label only), plus Google technical writing conventions: active voice, second person in instructions, present tense, precise verbs, unambiguous pronouns, conditions before instructions, sentence-case headings, serial commas. Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
 ---
 
 # deslop
@@ -21,7 +21,13 @@ TRIGGER when: writing or editing any prose deliverable (justifications, PR/commi
 
 ### 1. No em dashes
 
-No `—`, no `–`, no double hyphen standing in for one. Replace with a period, comma, parentheses, or colon, whichever keeps the sentence natural.
+Three look-alike characters, three different rulings:
+
+- **Hyphen `-` (U+002D): always fine.** Compound words ("read-only"), number ranges ("pages 12-14"), CLI flags, file names. The ban does not touch it.
+- **Em dash `—` (U+2014) and en dash `–` (U+2013): banned in prose.** Neither may stand in for a comma, parentheses, or a colon. Replace with a period, comma, parentheses, or colon, whichever keeps the sentence natural.
+- **Double hyphen ` -- `: banned when it fakes an em dash.** Fine as a literal, such as the CLI flag `--verbose`.
+
+The only exception is technical: the character is a literal or mandated by a convention, not punctuation you chose. Keep `—` and `–` verbatim in code, commands, file names, quoted output, and third-party quotes; when documenting the characters themselves; in the cut-off dash of verbatim dialogue or a transcript ("I was about to—"); and in the attribution dash of an epigraph ("—Ursula K. Le Guin"). There is no exception for punctuating your own sentences.
 
 | Before | After |
 |--------|-------|
@@ -120,6 +126,19 @@ Three failure modes, one rule: say exactly what you can support, and say it once
 - **One name per thing.** Pick a name for each component, file, or concept and keep it for the whole document. Rotating synonyms ("the helper", "the utility", "the function") forces the reader to re-map.
 - **Conclusions, not the journey.** "First I checked X, then I noticed Y, which led me to Z" is process narration. Write "Z, because Y." The reader needs the finding, not the tour.
 
+### 8. Google technical writing conventions
+
+Sentence-level rules adopted from Google's developer documentation style guide and Technical Writing One (as of 2026-07-19). Where they conflict with the rules above, the rules above win: Google permits em dashes, this skill does not.
+
+- **Active voice.** Name the actor: "the parser rejects the input", not "the input is rejected". Passive only when the actor is unknown or irrelevant.
+- **Second person in instructions.** When telling the reader what to do, write "you" or the bare imperative, not "we". "We recommend setting a timeout" becomes "set a timeout". Statements of fact ("we merged the fix") are unaffected.
+- **Present tense.** Describe behavior in the present: "returns null", not "will return null". Future tense only for events actually in the future.
+- **Precise verbs.** Replace "there is / there are" and weak verbs (is, occurs, happens) with the verb naming the action: "there are three ways the job fails" becomes "the job fails three ways".
+- **No ambiguous pronouns.** If "it", "this", or "they" could point at more than one noun, repeat the noun.
+- **One idea per sentence.** A sentence carrying two ideas becomes two sentences.
+- **Conditions before instructions.** "If the build fails, check the lockfile", never "Check the lockfile if the build fails". The reader decides whether the instruction applies before reading it.
+- **Serial comma.** "retries, timeouts, and backoff".
+
 ---
 
 ## Structure
@@ -132,6 +151,9 @@ Formatting is part of the prose. Decide the document's shape before writing: how
 - **Balance sections.** Sections at the same level should carry comparable weight. A three-line section beside a sixty-line sibling means merge the small one or split the large one.
 - **Keep one narrative.** The document reads top to bottom as a single argument, and each section advances it. If a section could be deleted without breaking the argument, delete it.
 - **Bold marks labels, not emphasis.** Bold the term a list item defines or a key the reader scans for; carry emphasis with word choice and sentence position. No exclamation marks in technical prose, no emoji, no punctuation doing decorative work.
+- **Numbered lists mean sequence.** Number a list only when order matters, and start each numbered item with an imperative verb ("Run the migration"). Everything else is bulleted.
+- **Sentence-case headings, descriptive links.** Capitalize only a heading's first word and proper nouns. Link text names the destination ("the retry design doc"), never "here" or "this link".
+- **Open with scope.** The first paragraph states what the document covers and who it is for, so the wrong reader can stop at line three.
 - **Diagrams and tables hold data; annotations hold explanation.** Inside a table cell or a diagram node, put only the label or value, kept short enough to read at a glance. Any supporting explanation goes directly below the table or diagram as an annotation (a caption, a footnote line, or a short paragraph), never crammed into cells or node text. A table whose cells wrap into multi-line prose or a diagram whose nodes hold full sentences has failed at presentation; move the prose to the annotation and shrink the structure back to labels.
 
 ### Choosing a comparison format
@@ -158,11 +180,11 @@ When the tree lands on a before/after table (node E): keep the Before and After 
 
 When asked to deslop existing text:
 
-1. **Scan for em dashes first.** They are the most reliable tell and mechanical to find (`—`, `–`, ` -- `).
+1. **Scan for em dashes first.** They are the most reliable tell and mechanical to find (`—`, `–`, ` -- `). A plain hyphen `-` is never a hit. Skip hits covered by rule 1's technical exception (code, quotes, the character as subject).
 2. **Sweep the banned lists** in Hard rules order. For each hit, decide: delete (filler), swap for the plain word (stock verbs), or rewrite around the concrete fact (abstraction words).
 3. **Assume no domain knowledge.** Find every technical term, acronym, and abbreviation a non-expert reader would have to look up; gloss the terms and expand the short forms on first use (Hard rule 4).
-4. **Apply the Verification Rules.** Label anything unverified, timestamp versions, and strip absolute claims (prevents, guarantees, will never) that have no source.
-5. **Check the structure.** Demote tables that should be bullets and bullets that should be prose, delete headings without enough content under them, flatten nesting past two levels, move prose out of table cells and diagram nodes into annotations below them, and cut closing summaries that restate the document.
+4. **Apply the Verification rules.** Label anything unverified, timestamp versions, and strip absolute claims (prevents, guarantees, will never) that have no source.
+5. **Check the structure.** Demote tables that should be bullets and bullets that should be prose, delete headings without enough content under them, flatten nesting past two levels, move prose out of table cells and diagram nodes into annotations below them, cut closing summaries that restate the document, fix title-case headings to sentence case, and rewrite "here" links to name their destination.
 6. **Reread each rewritten sentence aloud-style.** If the fix produced a fragment or a comma splice that reads worse than the original, restructure the sentence instead of patching the word.
 7. **Verify meaning survived.** Diff the claims, not the words: every fact in the original must still be in the result, and no new fact may appear.
 
@@ -183,7 +205,7 @@ If there is no specific fact behind the word, the sentence was padding. Delete i
 
 ---
 
-## Verification Rules
+## Verification rules
 
 1. Never present unverified content as fact.
 2. If unverifiable, say: "I cannot verify this" / "I do not have access to that information" / "My knowledge base does not contain that".
@@ -206,7 +228,7 @@ If there is no specific fact behind the word, the sentence was padding. Delete i
 
 ---
 
-## Trust Hierarchy
+## Trust hierarchy
 
 Official docs > Direct statements > Reputable sources > [Unverified]
 
