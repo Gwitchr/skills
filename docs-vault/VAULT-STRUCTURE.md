@@ -1,6 +1,6 @@
 # Vault structure reference
 
-Per-file scaffolds for every artifact [SKILL.md](SKILL.md) produces. These are copy-paste targets, not normative content. Each scaffold encodes the progressive-disclosure layers defined in SKILL.md: every file summarizes its own layer and links one level deeper.
+Per-file scaffolds for every artifact [SKILL.md](SKILL.md) produces. These are copy-paste targets, not normative content. Each scaffold encodes the progressive-disclosure layers defined in SKILL.md: every file summarizes its own layer and links one level deeper. Outline the vault (SKILL.md step 2) before instantiating any scaffold.
 
 ---
 
@@ -125,10 +125,9 @@ tags: [moc]
 
 # Home
 
-Obsidian vault for <project>. Open `docs/` as the vault root; `.obsidian/` lives here.
+The single hub of <project>'s docs vault. Open `docs/` as the vault root; `.obsidian/` lives here.
 
-GitHub-facing entry: [README](README.md).
-External entry from repo root: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLAUDE.md).
+On GitHub this folder renders [README](README.md), a pointer back here. The repo-root entry chain is [`CLAUDE.md`](../CLAUDE.md) → [`AGENTS.md`](../AGENTS.md) → this file.
 
 ## MOC (start here)
 
@@ -177,57 +176,26 @@ Skill inventory lives in [`skills-lock.json`](../skills-lock.json) at repo root.
 
 ---
 
-## `docs/README.md` (GitHub folder index)
+## `docs/README.md` (GitHub pointer)
+
+GitHub renders this file in folder view; Obsidian readers never need it. Keep it a pointer, not a second index. It repeats the read order only because GitHub does not render wikilinks.
 
 ```markdown
 ---
-aliases: [Vault Home, Home, Index]
 tags: [moc]
 ---
 
 # <project> docs vault
 
-This folder is an Obsidian vault. Open `docs/` as the vault root.
+This folder is an Obsidian vault; open `docs/` as the vault root. Start at [Home.md](Home.md), on GitHub too.
 
-In Obsidian, start at [[Home]]. On GitHub, keep reading.
-
-External entry points: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLAUDE.md).
-
-## Read order (top-level domain docs)
-
-PRODUCT → RUNTIME → ARCHITECTURE → DATA → AUTH → ENGINEERING → TESTING → DESIGN
-
-\`\`\`mermaid
-graph TD
-  README["README"] --> PRODUCT["PRODUCT"]
-  README --> RUNTIME["RUNTIME"]
-  README --> ARCHITECTURE["ARCHITECTURE"]
-  README --> DATA["DATA"]
-  README --> AUTH["AUTH"]
-  README --> ENGINEERING["ENGINEERING"]
-  README --> TESTING["TESTING"]
-  README --> DESIGN["DESIGN"]
-
-  PRODUCT --> ARCHITECTURE
-  RUNTIME --> AUTH
-  RUNTIME --> DATA
-  ARCHITECTURE --> DATA
-  ARCHITECTURE --> AUTH
-  DATA --> AUTH
-  ENGINEERING --> RUNTIME
-  ENGINEERING --> TESTING
-  DESIGN --> ARCHITECTURE
-\`\`\`
-
-Each top-level doc is a short summary that links into the deeper folder content (`architecture/*`, `conventions/*`, `workflows/*`, `quality/*`). Read only as deep as your question requires.
-
-## Folders
+Read order: PRODUCT → RUNTIME → ARCHITECTURE → DATA → AUTH → ENGINEERING → TESTING → DESIGN. Read only as deep as your question requires.
 
 \`\`\`
 docs/
 ├── .obsidian/        Obsidian config (graph colors, plugins, bookmarks)
-├── Home.md           Vault MOC, open this first in Obsidian
-├── README.md         This file, GitHub folder index
+├── Home.md           the vault's single hub, start here
+├── README.md         this file, a pointer to Home
 │
 ├── PRODUCT.md        ┐
 ├── RUNTIME.md        │
@@ -242,11 +210,9 @@ docs/
 ├── conventions/      rules per layer
 ├── workflows/        step recipes
 ├── quality/          perf, accessibility, reliability, security, design polish
-├── decisions/        ADRs (lazy)
+├── decisions/        architecture decision records (lazy)
 └── upgrades/         what the repo lacks vs skill defaults
 \`\`\`
-
-Skill inventory lives in [`../skills-lock.json`](../skills-lock.json).
 ```
 
 ---
@@ -310,7 +276,7 @@ tags: [<folder-tag>]
 - ↩ <[[overview]] for architecture/, [[Home]] otherwise>
 ```
 
-The `↑` line is non-negotiable; it makes the graph bidirectional. See SKILL.md §5.
+The `↑` line is non-negotiable; it makes the graph bidirectional. See SKILL.md §6.
 
 ---
 
@@ -349,27 +315,14 @@ What gets easier, what gets harder, what we now have to maintain.
 
 ### `CLAUDE.md`
 
+Three lines, one job: send the reader to layer 2. Project-specific rules live in `AGENTS.md`, not here.
+
 ```markdown
 # CLAUDE.md
 
-This file is a single pointer; everything else is downstream.
-
-## Read this
-
-- **[AGENTS.md](AGENTS.md)**: entry point for AI agents working in this repo.
-- **Top-level domain docs** (read in order):
-  [PRODUCT](docs/PRODUCT.md) → [RUNTIME](docs/RUNTIME.md) → [ARCHITECTURE](docs/ARCHITECTURE.md) → [DATA](docs/DATA.md) → [AUTH](docs/AUTH.md) → [ENGINEERING](docs/ENGINEERING.md) → [TESTING](docs/TESTING.md) → [DESIGN](docs/DESIGN.md).
-- **[docs/README.md](docs/README.md)**: Obsidian vault. Open `docs/` as a vault in Obsidian; `.obsidian/` config is committed (graph color groups by tag, bookmarks, plugin defaults). MOC entry: [docs/Home.md](docs/Home.md).
-
-## Don't
-
-- Don't read `.env` / `.env.local` with agent tools; they hold live secrets. Read `.env.example` instead.
-- <other project-specific don'ts>
-
-## Do
-
-- Use installed skills (see `.agents/skills/` and the inventory in [`skills-lock.json`](skills-lock.json)).
-- <other project-specific dos>
+Read [AGENTS.md](AGENTS.md) first; it is the entry point for agents working in this repo.
+The docs vault starts at [docs/Home.md](docs/Home.md); read only as deep as the task needs.
+Don't read `.env` / `.env.local` (live secrets); read `.env.example` instead.
 ```
 
 ### `AGENTS.md`
@@ -420,12 +373,9 @@ The vault does **not** maintain a separate skills index; domain docs name the sk
 <commands>
 \`\`\`
 
-## See also
+## Vault entry
 
-- [CLAUDE.md](CLAUDE.md)
-- [docs/README.md](docs/README.md)
-- [docs/Home.md](docs/Home.md)
-- [docs/DESIGN.md](docs/DESIGN.md)
+Start at [docs/Home.md](docs/Home.md), the vault's single hub, and read only as deep as the task needs.
 ```
 
 ---

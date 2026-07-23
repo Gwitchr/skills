@@ -1,11 +1,11 @@
 ---
 name: docs-vault
-description: Build a complete agent-readable Obsidian vault for any software codebase, governed by progressive disclosure (each layer carries a summary and links one level deeper), eight flat top-level domain docs (PRODUCT/RUNTIME/ARCHITECTURE/DATA/AUTH/ENGINEERING/TESTING/DESIGN), folder-level deep specs, bidirectional wikilinks for graph navigation, and a `DESIGN.md` that conforms to the google-labs-code/design.md spec with tokens derived from the project's existing design sources. Use when asked to "set up project docs", "write project documentation", "create an Obsidian vault from this repo", "document this codebase for agents", "add a DESIGN.md", or "make the design system machine-readable".
+description: Build an Obsidian vault of project docs that humans and LLMs read the same way, eight flat top-level domain docs (PRODUCT/RUNTIME/ARCHITECTURE/DATA/AUTH/ENGINEERING/TESTING/DESIGN) over folder-level deep specs, a single entry point, bidirectional wikilinks that form a real dependency graph, and a `DESIGN.md` that conforms to the google-labs-code/design.md spec with tokens derived from the project's existing design sources. Progressive disclosure governs the vault (each layer carries a summary and links one level deeper, so an agent loads only the context its task needs), the structure is outlined before any prose is written, links may only point at files that exist, and a second pass verifies budgets and links. Use when asked to "set up project docs", "write project documentation", "create an Obsidian vault from this repo", "document this codebase for agents", "add a DESIGN.md", or "make the design system machine-readable".
 ---
 
 # docs-vault
 
-Build a `docs/` folder that works both as an Obsidian vault (a folder of markdown notes that the Obsidian app opens with graph view, backlinks, and color-coded tags) and as a flat GitHub-readable index. Pair it with a `DESIGN.md` that follows the [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec so the design system becomes machine-readable.
+Build a `docs/` folder that works both as an Obsidian vault (a folder of markdown notes that the Obsidian app opens with graph view, backlinks, and color-coded tags) and as a flat GitHub-readable index. Pair it with a `DESIGN.md` that follows the [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec so the design system becomes machine-readable. The vault serves two readers at once: a human who opens it in Obsidian or on GitHub, and an LLM (large language model) that should load only the context its task needs.
 
 TRIGGER when: bootstrapping documentation for an application, service, library, platform, or multi-package repository; introducing a flat top-level domain-doc pattern over an existing tangle of docs; or making the design system machine-readable for agents.
 
@@ -19,9 +19,11 @@ TRIGGER when: bootstrapping documentation for an application, service, library, 
 
 ---
 
-## Governing principle: progressive disclosure
+## Governing principles
 
-Every artifact this skill produces follows one rule: each layer carries only what a reader needs at that depth, plus links one level deeper. A reader (human or agent) starts at a three-line pointer and stops at the shallowest layer that answers the question. Detail lives at the deepest layer that needs it, stated once.
+Five principles govern every artifact this skill produces. The workflow refers to them by number.
+
+**1. Progressive disclosure.** Each layer carries only what a reader needs at that depth, plus links one level deeper. The point is context economy: an agent loads the pointer, follows links only while its question is open, and never pays for layers it did not need. Humans get the same benefit as files short enough to hold in your head. Detail lives at the deepest layer that needs it, stated once.
 
 | Layer | Artifact | Carries |
 |-------|----------|---------|
@@ -31,7 +33,15 @@ Every artifact this skill produces follows one rule: each layer carries only wha
 | 4 | Folder deep docs | Full specs (`architecture/*`, `conventions/*`, ...) |
 | 5 | Source code | Ground truth |
 
-The rest of the skill serves this principle: line targets keep layers 1-3 short, **See also** links carry the reader down, `↑` up-links carry the reader back, and the duplication ban keeps each fact at one depth. `DESIGN.md` is the one exception: the design.md spec requires a complete single file, so it holds full token data at layer 3. When a structure question is not covered here, put the detail one layer down and leave a link behind.
+`DESIGN.md` is the one exception: the design.md spec requires a complete single file, so it holds full token data at layer 3. When a structure question is not covered here, put the detail one layer down and leave a link behind.
+
+**2. One entry point.** `docs/Home.md` is the vault's only hub, and the way in is always the same chain: `CLAUDE.md` → `AGENTS.md` → `Home.md` → domain docs. `docs/README.md` exists only because GitHub renders it in folder view; it points at Home and stops. No file duplicates Home's link list.
+
+**3. Links form a dependency graph.** A wikilink states a real relation: a down-link says "this doc elaborates me", the `↑` up-link says "I summarize that doc". Never add a link for decoration or to make the graph look connected. Done right, the Obsidian graph shows the layers radiating from Home, and the backlinks panel reads as a reverse dependency list.
+
+**4. Two audiences, one voice.** Humans and LLMs read the same files, so write prose that reads naturally when spoken: short sentences, simple words, technical terms explained at first use, no filler. If the `deslop` skill is installed (in `.agents/skills/` or the session skill list), apply it to every doc you write.
+
+**5. No invented references.** Every wikilink, file path, and code reference points at something you opened during this run, in the repo or in a file the run creates. Never cite a file, function, or decision from memory of similar projects. When a fact cannot be verified in the repo, ask the user or label it [Unverified].
 
 ## Outputs
 
@@ -48,8 +58,8 @@ docs/
 │   ├── graph.json              color groups by tag
 │   ├── appearance.json
 │   └── bookmarks.json
-├── Home.md                     Obsidian map of content (MOC, alias: Vault Home)
-├── README.md                   GitHub folder index (mermaid map)
+├── Home.md                     the vault's single hub (map of content, alias: Vault Home)
+├── README.md                   short GitHub pointer to Home
 │
 ├── PRODUCT.md                  ┐
 ├── RUNTIME.md                  │
@@ -70,6 +80,8 @@ docs/
 
 ## Workflow
 
+The build takes an outline plus two passes. The outline (step 2) fixes the structure before any prose exists. Pass 1 (steps 3-8) writes the files. Pass 2 (step 9) rereads everything and verifies the principles held. Do not skip pass 2.
+
 ### 1. Sweep the codebase (read, don't write yet)
 
 Before writing a single doc, read enough to map the project:
@@ -84,13 +96,23 @@ Before writing a single doc, read enough to map the project:
 
 Use Glob + Grep + Read in parallel. Don't open every file; open enough to fill out PRODUCT/RUNTIME/ARCHITECTURE.
 
-### 2. Create vault config
+### 2. Outline the vault (structure before prose)
+
+Before writing a single sentence of documentation, write the outline: one line per planned file with its path, layer, one-sentence purpose, planned up- and down-links, and line budget. Then check it:
+
+- Every planned link targets a file that exists or is itself in the outline (principle 5).
+- Every folder doc has exactly one `↑` parent, and `Home.md` is the only hub (principle 2).
+- Any top-level doc whose outline already wants more than its lines target loses content one layer down (principle 1).
+
+Start writing only when the outline passes all three checks. A structure mistake costs one outline line now and a rewrite later.
+
+### 3. Create vault config
 
 Drop `.obsidian/` into `docs/` so opening the folder in Obsidian works immediately. Templates: see [VAULT-STRUCTURE.md](VAULT-STRUCTURE.md) §Vault config.
 
 Required: `app.json` (sets `useMarkdownLinks: false` so wikilinks are the default), `core-plugins.json` (graph/backlinks/tag-pane on), `graph.json` (color groups by tag).
 
-### 3. Write the eight top-level domain docs (flat)
+### 4. Write the eight top-level domain docs (flat)
 
 Order, and what each must cover:
 
@@ -114,11 +136,11 @@ tags: [moc, architecture]   # see tag list below
 ---
 ```
 
-Each top-level file is a **summary that links into deeper folder content**. Don't duplicate; link down (see the governing principle). The `architecture/data-layer.md` deep doc may be 200 lines; `DATA.md` is 100 lines and points at it.
+Each top-level file is a **summary that links into deeper folder content**. Don't duplicate; link down (principle 1). The `architecture/data-layer.md` deep doc may be 200 lines; `DATA.md` is 100 lines and points at it.
 
 **Read order goes in `Home.md` and `AGENTS.md`:** PRODUCT → RUNTIME → ARCHITECTURE → DATA → AUTH → ENGINEERING → TESTING → DESIGN.
 
-### 4. Write folder docs (deeper specs)
+### 5. Write folder docs (deeper specs)
 
 Folders + tag mapping:
 
@@ -133,9 +155,9 @@ Folders + tag mapping:
 
 Per-file scaffolds (overview, conventions, workflows, quality, decisions, upgrades): see [VAULT-STRUCTURE.md](VAULT-STRUCTURE.md).
 
-### 5. Wire bidirectional links
+### 6. Wire bidirectional links
 
-For Obsidian's graph + backlinks panel to work well:
+Link only where a real dependency exists (principle 3). For Obsidian's graph + backlinks panel to work well:
 
 - **Use wikilinks `[[file]]`** for in-vault navigation. Obsidian resolves by basename; aliases let you target by display name.
 - **Use external markdown links** for files outside the vault (`../AGENTS.md`, `../package.json`).
@@ -151,7 +173,7 @@ For Obsidian's graph + backlinks panel to work well:
 
 - **Give every top-level domain doc a See also** linking to its deep docs and to peer top-levels.
 
-### 6. Write the spec-compliant `DESIGN.md`
+### 7. Write the spec-compliant `DESIGN.md`
 
 Follow [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md). Hard requirements:
 
@@ -163,15 +185,27 @@ Follow [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md). Hard requirements:
 6. **Lint clean:** `npx @google/design.md lint docs/DESIGN.md` reports `0 errors, 0 warnings`.
 7. **Obsidian frontmatter (`aliases`, `tags`)** lives alongside spec keys; the YAML parser accepts unknown keys.
 
-### 7. Refresh entry files
+### 8. Write the entry chain
 
-After the vault exists, update / create:
+One chain leads into the vault: `CLAUDE.md` → `AGENTS.md` → `docs/Home.md` (principle 2). Update or create:
 
-- **`CLAUDE.md`** at repo root: a 3-line pointer to `AGENTS.md` and `docs/README.md`.
-- **`AGENTS.md`** at repo root: the entry for any agent. It carries the read-order table, the non-negotiables, and skill discipline (point at `skills-lock.json` if applicable; do not maintain a separate skills index in the vault, because it creates SKILL graph noise).
-- **`docs/README.md`**: GitHub-facing folder index with a mermaid graph (a text-defined diagram GitHub renders) and the folder map.
-- **`docs/Home.md`**: Obsidian MOC (alias `Vault Home`). The top section lists all 8 top-level docs with a one-line description each.
+- **`CLAUDE.md`** at repo root: a 3-line pointer to `AGENTS.md`, the vault entry, and the one hard don't.
+- **`AGENTS.md`** at repo root: the entry for any agent. It carries the read-order table, the non-negotiables, and skill discipline (point at `skills-lock.json` if applicable; do not maintain a separate skills index in the vault, because it creates SKILL graph noise). Its vault entry link is `docs/Home.md`.
+- **`docs/Home.md`**: the vault's single hub (alias `Vault Home`). The top section lists all 8 top-level docs with a one-line description each.
+- **`docs/README.md`**: a short pointer for GitHub browsing. It names the vault, links to `Home.md`, repeats the read order (GitHub does not render wikilinks), and shows the folder tree. Nothing else.
 - **`docs/.obsidian/bookmarks.json`**: pin Home + 3-4 most-touched files (PRODUCT, ARCHITECTURE, DESIGN, "Immediate upgrades" if you wrote one).
+
+### 9. Second pass: verify the vault (mandatory)
+
+Progressive disclosure fails silently: bloat and broken links appear while writing, and only a reread finds them. Reread every file in read order and fix:
+
+- **Budgets:** each doc is within its lines target; move anything over one layer down (principle 1).
+- **Duplication:** no fact lives at two depths; the shallower copy becomes a link.
+- **References:** open every wikilink and path target. Fix or delete any that does not resolve (principle 5).
+- **Entry:** the only way in is `CLAUDE.md` → `AGENTS.md` → `Home.md`; no other file duplicates Home's link list (principle 2).
+- **Prose:** if the `deslop` skill is installed, run it over every doc; otherwise reread one paragraph per file aloud-style and cut filler (principle 4).
+
+If this pass moved content between layers, reread the affected files once more before declaring done.
 
 ## Tag set (source of Obsidian graph color groups)
 
@@ -189,7 +223,9 @@ After the vault exists, update / create:
 
 ## Hard rules
 
-- **Never** move deep-spec content up a layer. Upper layers summarize and link down; the folder doc holds the detail (see the governing principle).
+- **Never** move deep-spec content up a layer. Upper layers summarize and link down; the folder doc holds the detail (principle 1).
+- **Never** write a wikilink or path you have not resolved. If the target is planned but not yet written, create it in the same run or drop the link (principle 5).
+- **Never** grow `docs/README.md` into a second index. It points at `Home.md` and stops (principle 2).
 - **Never** put SKILL.md backlinks (`🌐 Live skill: [name](.../SKILL.md)`) in vault docs: every link to a `SKILL.md` becomes a "SKILL" node in the graph view and clusters visual noise. Reference skills as plain code-fenced text (`` `zod-prisma-tanstack` ``) and point readers at `skills-lock.json` once at the top level.
 - **Never** maintain a parallel skills index inside the vault. `skills-lock.json` is the inventory. The relevant skill name is mentioned inline in the doc that distills it.
 - **Never** invent token values for `DESIGN.md`, derive from the project's existing design sources and call out drift in prose.
@@ -199,6 +235,9 @@ After the vault exists, update / create:
 
 ## Anti-patterns
 
+- ❌ Writing docs before the outline exists. A structure mistake costs one line in the outline and a rewrite after pass 1.
+- ❌ Wikilinks to docs "to be written later". They render as broken graph nodes and teach readers to distrust every link.
+- ❌ `README.md` and `Home.md` competing as indexes. README points; Home indexes.
 - ❌ A single 1000-line `docs/INDEX.md` with everything inline. Split into the 8 top-level domain files; each links into its folder.
 - ❌ Top-level docs that duplicate folder content. Top-level summarizes; folder doc is the deep spec.
 - ❌ Folder docs that don't link up to their top-level parent (graph becomes one-directional).
@@ -212,7 +251,7 @@ After the vault exists, update / create:
 
 - [ ] `docs/.obsidian/` committed with at least `app.json`, `core-plugins.json`, `graph.json`, `bookmarks.json`
 - [ ] `docs/Home.md` exists with `aliases: [Vault Home]` and lists all 8 top-level docs
-- [ ] `docs/README.md` exists with a mermaid graph + folder map (GitHub-renderable)
+- [ ] `docs/README.md` is a short pointer to `Home.md` (read order + folder tree, nothing else)
 - [ ] All 8 top-level docs exist with frontmatter (`aliases`, `tags`)
 - [ ] Every folder doc has a `↑ up-link` in its **See also** section
 - [ ] No `🌐 Live skill: [...](.../SKILL.md)` links anywhere in the vault
@@ -221,6 +260,9 @@ After the vault exists, update / create:
 - [ ] Read order is documented in **both** `Home.md` and `AGENTS.md`
 - [ ] Tags applied consistently per the tag set table
 - [ ] Progressive disclosure holds: `CLAUDE.md` is a 3-line pointer, each top-level doc stays within its lines target, and no top-level doc repeats folder-doc content
+- [ ] The outline existed before any doc was written, and pass 2 ran over every file
+- [ ] Every wikilink and path resolves to a file that exists
+- [ ] Prose is plain and reads naturally (run the `deslop` skill on every doc if it is installed)
 
 ## Reference files
 

@@ -1,6 +1,6 @@
 # DESIGN.md template (general-purpose)
 
-Reference for [SKILL.md](SKILL.md) Step 6.
+Reference for [SKILL.md](SKILL.md) step 7.
 
 This file explains how to derive a spec-compliant `docs/DESIGN.md` from an existing project's design sources. The DESIGN.md spec is [google-labs-code/design.md](https://github.com/google-labs-code/design.md); read its `docs/spec.md` for the normative format definition.
 
