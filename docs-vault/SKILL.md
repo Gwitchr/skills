@@ -1,6 +1,6 @@
 ---
 name: docs-vault
-description: Build a complete agent-readable Obsidian vault for any software codebase, governed by progressive disclosure (each layer carries a summary and links one level deeper): eight flat top-level domain docs (PRODUCT/RUNTIME/ARCHITECTURE/DATA/AUTH/ENGINEERING/TESTING/DESIGN), folder-level deep specs, bidirectional wikilinks for graph navigation, and a `DESIGN.md` that conforms to the google-labs-code/design.md spec with tokens derived from the project's existing design sources. Use when asked to "set up project docs", "write project documentation", "create an Obsidian vault from this repo", "document this codebase for agents", "add a DESIGN.md", or "make the design system machine-readable".
+description: Build a complete agent-readable Obsidian vault for any software codebase, governed by progressive disclosure (each layer carries a summary and links one level deeper), eight flat top-level domain docs (PRODUCT/RUNTIME/ARCHITECTURE/DATA/AUTH/ENGINEERING/TESTING/DESIGN), folder-level deep specs, bidirectional wikilinks for graph navigation, and a `DESIGN.md` that conforms to the google-labs-code/design.md spec with tokens derived from the project's existing design sources. Use when asked to "set up project docs", "write project documentation", "create an Obsidian vault from this repo", "document this codebase for agents", "add a DESIGN.md", or "make the design system machine-readable".
 ---
 
 # docs-vault
