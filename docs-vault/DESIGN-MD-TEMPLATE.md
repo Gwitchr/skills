@@ -10,14 +10,14 @@ This file explains how to derive a spec-compliant `docs/DESIGN.md` from an exist
 
 Produce a `docs/DESIGN.md` that:
 
-1. **Lints clean**, `npx @google/design.md lint docs/DESIGN.md` reports `0 errors, 0 warnings`.
-2. **Maps back to the implementation**, token names, values, and component roles correspond to files already in the repo or to explicitly documented brand sources.
-3. **Coexists with Obsidian**, frontmatter carries both spec keys and Obsidian metadata (`aliases`, `tags`).
-4. **Documents intent, not just current code**, if implementation code reaches for raw values but the brand tokens intend semantic values, tokens encode the intended state and prose calls out the drift.
+1. **Lints clean:** `npx @google/design.md lint docs/DESIGN.md` reports `0 errors, 0 warnings`.
+2. **Maps back to the implementation:** token names, values, and component roles correspond to files already in the repo or to explicitly documented brand sources.
+3. **Coexists with Obsidian:** frontmatter carries both spec keys and Obsidian metadata (`aliases`, `tags`).
+4. **Documents intent over current code:** if implementation code reaches for raw values but the brand tokens intend semantic values, tokens encode the intended state and prose calls out the drift.
 
 ## Step-by-step derivation
 
-### Step 1, Find the design source of truth
+### Step 1: Find the design source of truth
 
 Do not assume a framework, styling library, or file name. Inspect the repository for the source that most directly defines visual language:
 
@@ -43,7 +43,7 @@ If several sources conflict, prefer the most intentional source in this order:
 
 Record conflicts in prose instead of silently choosing values.
 
-### Step 2, Read dominant interface primitives
+### Step 2: Read dominant interface primitives
 
 Read the primitives that users or developers reuse most often. Names vary by stack, so search by role instead of framework:
 
@@ -61,7 +61,7 @@ For each variant, capture:
 
 This tells you what the design system currently produces versus what the token source intends.
 
-### Step 3, Read global surface rules
+### Step 3: Read global surface rules
 
 Find app-wide defaults and platform-level resources:
 
@@ -77,7 +77,7 @@ Look for:
 - Custom properties, constants, enums, or theme accessors used by primitives.
 - Design assets that affect tokens, such as icons, illustrations, or logo color constraints.
 
-### Step 4, Decide the semantic palette
+### Step 4: Decide the semantic palette
 
 Map raw values to semantic token names. The DESIGN.md spec recommends:
 
@@ -97,7 +97,7 @@ Map raw values to semantic token names. The DESIGN.md spec recommends:
 | `outline` | Borders, dividers, rings |
 | `error` / `success` / `warning` / `info` | Semantic feedback |
 
-**WCAG check before committing:** any foreground/background pair used for normal text must hit >= 4.5:1 contrast. If a brand color is too light or too dark for a role, introduce a role split:
+**Contrast check before committing:** any foreground/background pair used for normal text must hit the Web Content Accessibility Guidelines (WCAG) AA ratio of at least 4.5:1. If a brand color is too light or too dark for a role, introduce a role split:
 
 - `primary` = accessible action color.
 - `primary-container` = softer brand surface.
@@ -105,7 +105,7 @@ Map raw values to semantic token names. The DESIGN.md spec recommends:
 
 This preserves brand intent without making inaccessible tokens normative.
 
-### Step 5, Define the typography scale
+### Step 5: Define the typography scale
 
 If the project already codifies typography, use those names and values. If the project relies on repeated raw values, codify the scale this file commits to and mark it as "newly codified" in prose.
 
@@ -129,9 +129,9 @@ typography:
   numeric-tabular: { fontFamily: <body>, fontSize: 14px, fontWeight: 500, lineHeight: 1, fontFeature: '"tnum" 1' }
 ```
 
-If the project ships dynamic numbers such as counters, prices, or timers, include `numeric-tabular` with `fontFeature: '"tnum" 1'`.
+If the project displays dynamic numbers such as counters, prices, or timers, include `numeric-tabular` with `fontFeature: '"tnum" 1'`.
 
-### Step 6, Spacing, radius, elevation, and motion
+### Step 6: Spacing, radius, elevation, and motion
 
 Document the named anchors the project actually uses. Start from existing token names when present; otherwise name repeated values by role:
 
@@ -160,7 +160,7 @@ spacing:
 
 If the spec or linter version in use supports elevation or motion tokens, include them only when the project has clear source values. Otherwise document those choices in body prose under "Elevation & Depth" and "Components".
 
-### Step 7, Components
+### Step 7: Components
 
 Define every visual primitive that varies by tokens. **Reference tokens, never inline hex.** Use `{colors.primary}`, `{rounded.lg}`, `{typography.label-md}`, and equivalent token references.
 
@@ -182,7 +182,7 @@ Minimum component coverage when these roles exist:
 
 Every defined color token must be referenced by at least one component, otherwise the linter warns "orphaned-tokens".
 
-### Step 8, Sections in canonical order
+### Step 8: Sections in canonical order
 
 ```text
 1. Overview                          (also: "Brand & Style")
@@ -197,9 +197,9 @@ Every defined color token must be referenced by at least one component, otherwis
 
 Sections can be omitted, but those present must appear in this order. Do not reorder; the linter checks.
 
-### Step 9, Implementation mapping
+### Step 9: Implementation mapping
 
-Add a final section bridging DESIGN.md tokens back to the project's actual implementation. Name the real source files, package names, generation commands, or consuming APIs:
+Add a final section that maps DESIGN.md tokens back to the project's actual implementation. Name the real source files, package names, generation commands, or consuming APIs:
 
 ```markdown
 ## Implementation mapping
@@ -224,7 +224,7 @@ Convergence loop:
 
 If the project supports exporting DESIGN.md into a platform theme, document that command here. Do not require an export path when the project has no exporter.
 
-### Step 10, Lint
+### Step 10: Lint
 
 ```bash
 npx @google/design.md lint docs/DESIGN.md
@@ -235,7 +235,7 @@ Fix every error and every warning except `info`-level. Common fixes:
 | Finding | Fix |
 |---------|-----|
 | `contrast-ratio` warning | Split the brand color into accessible action and container roles. Re-test. |
-| `orphaned-tokens` warning | Add a component that references the token, or delete the token if it is truly unused. |
+| `orphaned-tokens` warning | Add a component that references the token, or delete the token if it is unused. |
 | `missing-primary` warning | Define `colors.primary`. |
 | `missing-typography` warning | Define at least one `typography.*` entry. |
 | `broken-ref` error | A `{path.to.token}` reference does not resolve. Check the path. |

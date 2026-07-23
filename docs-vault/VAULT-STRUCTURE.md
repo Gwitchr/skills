@@ -1,6 +1,6 @@
 # Vault structure reference
 
-Per-file scaffolds for every artifact [SKILL.md](SKILL.md) produces. Copy-paste targets, not normative content.
+Per-file scaffolds for every artifact [SKILL.md](SKILL.md) produces. These are copy-paste targets, not normative content. Each scaffold encodes the progressive-disclosure layers defined in SKILL.md: every file summarizes its own layer and links one level deeper.
 
 ---
 
@@ -62,7 +62,7 @@ Per-file scaffolds for every artifact [SKILL.md](SKILL.md) produces. Copy-paste 
 
 ### `graph.json`
 
-Color groups by tag. Adjust hex/`rgb` values to taste; the structure is what matters.
+`graph.json` colors graph nodes by tag. Adjust hex/`rgb` values to taste; the structure is what matters.
 
 ```json
 {
@@ -115,7 +115,7 @@ Pin Home + 3-4 most-touched entry points.
 
 ---
 
-## `docs/Home.md` (Obsidian MOC)
+## `docs/Home.md` (Obsidian map of content, MOC)
 
 ```markdown
 ---
@@ -125,12 +125,12 @@ tags: [moc]
 
 # Home
 
-Obsidian vault for <project>. Open `docs/` as the vault root, `.obsidian/` lives here.
+Obsidian vault for <project>. Open `docs/` as the vault root; `.obsidian/` lives here.
 
 GitHub-facing entry: [README](README.md).
 External entry from repo root: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLAUDE.md).
 
-## MOC, start here
+## MOC (start here)
 
 ### Top-level (flat domain docs)
 
@@ -170,7 +170,7 @@ External entry from repo root: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLA
 
 Skill inventory lives in [`skills-lock.json`](../skills-lock.json) at repo root. Domain docs name the skill they distill inline; open `.agents/skills/<name>/SKILL.md` directly when working in that area.
 
-## Tags drive graph color groups
+## Tags set graph color groups
 
 `#architecture` · `#convention` · `#workflow` · `#quality` · `#adr` · `#upgrade` · `#moc`
 ```
@@ -187,9 +187,9 @@ tags: [moc]
 
 # <project> docs vault
 
-Obsidian-style vault. Open `docs/` as the vault root.
+This folder is an Obsidian vault. Open `docs/` as the vault root.
 
-In Obsidian → start at [[Home]]. On GitHub → keep reading.
+In Obsidian, start at [[Home]]. On GitHub, keep reading.
 
 External entry points: [`AGENTS.md`](../AGENTS.md), [`CLAUDE.md`](../CLAUDE.md).
 
@@ -219,7 +219,7 @@ graph TD
   DESIGN --> ARCHITECTURE
 \`\`\`
 
-Each top-level doc is a short summary that links into the deeper folder content (`architecture/*`, `conventions/*`, `workflows/*`, `quality/*`).
+Each top-level doc is a short summary that links into the deeper folder content (`architecture/*`, `conventions/*`, `workflows/*`, `quality/*`). Read only as deep as your question requires.
 
 ## Folders
 
@@ -243,7 +243,7 @@ docs/
 ├── workflows/        step recipes
 ├── quality/          perf, accessibility, reliability, security, design polish
 ├── decisions/        ADRs (lazy)
-└── upgrades/         gap analysis vs skill defaults
+└── upgrades/         what the repo lacks vs skill defaults
 \`\`\`
 
 Skill inventory lives in [`../skills-lock.json`](../skills-lock.json).
@@ -285,7 +285,7 @@ tags: [moc, <domain-tag>]
 - ↩ [[Home]]
 ```
 
-`DESIGN.md` is the exception, see [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md).
+`DESIGN.md` is the exception; see [DESIGN-MD-TEMPLATE.md](DESIGN-MD-TEMPLATE.md).
 
 ---
 
@@ -310,13 +310,13 @@ tags: [<folder-tag>]
 - ↩ <[[overview]] for architecture/, [[Home]] otherwise>
 ```
 
-The `↑` line is non-negotiable, it makes the graph bidirectional. See SKILL.md §5.
+The `↑` line is non-negotiable; it makes the graph bidirectional. See SKILL.md §5.
 
 ---
 
 ## ADR template (`docs/decisions/<NNNN>-<short-title>.md`)
 
-ADRs are lazy. Only when the decision is hard to reverse, surprising, AND the result of a real trade-off.
+ADRs (architecture decision records) are lazy: write one only when the decision is hard to reverse, surprising, and the result of a real trade-off.
 
 ```markdown
 ---
@@ -324,7 +324,7 @@ aliases: [<NNNN> <short title>]
 tags: [adr]
 ---
 
-# <NNNN>, <short imperative title>
+# <NNNN>: <short imperative title>
 
 ## Status
 proposed | accepted | superseded by <NNNN>
@@ -352,20 +352,18 @@ What gets easier, what gets harder, what we now have to maintain.
 ```markdown
 # CLAUDE.md
 
-Single pointer. Everything else is downstream.
+This file is a single pointer; everything else is downstream.
 
 ## Read this
 
-→ **[AGENTS.md](AGENTS.md)**, entry point for AI agents working in this repo.
-
-→ **Top-level domain docs** (read in order):
-[PRODUCT](docs/PRODUCT.md) → [RUNTIME](docs/RUNTIME.md) → [ARCHITECTURE](docs/ARCHITECTURE.md) → [DATA](docs/DATA.md) → [AUTH](docs/AUTH.md) → [ENGINEERING](docs/ENGINEERING.md) → [TESTING](docs/TESTING.md) → [DESIGN](docs/DESIGN.md).
-
-→ **[docs/README.md](docs/README.md)**, Obsidian vault. Open `docs/` as a vault in Obsidian, `.obsidian/` config is committed (graph color groups by tag, bookmarks, plugin defaults). MOC entry: [docs/Home.md](docs/Home.md).
+- **[AGENTS.md](AGENTS.md)**: entry point for AI agents working in this repo.
+- **Top-level domain docs** (read in order):
+  [PRODUCT](docs/PRODUCT.md) → [RUNTIME](docs/RUNTIME.md) → [ARCHITECTURE](docs/ARCHITECTURE.md) → [DATA](docs/DATA.md) → [AUTH](docs/AUTH.md) → [ENGINEERING](docs/ENGINEERING.md) → [TESTING](docs/TESTING.md) → [DESIGN](docs/DESIGN.md).
+- **[docs/README.md](docs/README.md)**: Obsidian vault. Open `docs/` as a vault in Obsidian; `.obsidian/` config is committed (graph color groups by tag, bookmarks, plugin defaults). MOC entry: [docs/Home.md](docs/Home.md).
 
 ## Don't
 
-- Don't read `.env` / `.env.local` with agent tools, live secrets. Read `.env.example` instead.
+- Don't read `.env` / `.env.local` with agent tools; they hold live secrets. Read `.env.example` instead.
 - <other project-specific don'ts>
 
 ## Do
@@ -381,7 +379,7 @@ Mirror your project's specifics. The shape:
 ```markdown
 # AGENTS.md
 
-Entry point for any AI agent (Claude, Cursor, Aider, Copilot, ...) working in this repo.
+The entry point for any AI agent (Claude, Cursor, Aider, Copilot, ...) working in this repo.
 
 ## Read this first (top-level domain docs)
 
@@ -393,7 +391,7 @@ Read order: PRODUCT → RUNTIME → ARCHITECTURE → DATA → AUTH → ENGINEERI
 
 ## Open as Obsidian vault
 
-`docs/` is a real Obsidian vault. From the Obsidian app: **Open folder as vault** → pick `docs/`.
+`docs/` is a real Obsidian vault. From the Obsidian app, choose **Open folder as vault** and pick `docs/`.
 
 ## Stack at a glance
 
@@ -414,7 +412,7 @@ src/
 
 Inventory: [`skills-lock.json`](skills-lock.json) at repo root. Sources installed under `.agents/skills/<name>/SKILL.md`.
 
-The vault does **not** maintain a separate skills index, domain docs name the skill they distill inline. Open the relevant `.agents/skills/<name>/SKILL.md` directly when working in that area.
+The vault does **not** maintain a separate skills index; domain docs name the skill they distill inline. Open the relevant `.agents/skills/<name>/SKILL.md` directly when working in that area.
 
 ## Local commands
 
