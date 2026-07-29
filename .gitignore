@@ -23,3 +23,6 @@ yarn-error.log*
 
 # Dependency dirs
 node_modules/
+
+# Worktrees skill: test harness stays local, not published
+worktrees/tests/

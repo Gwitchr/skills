@@ -1,0 +1,35 @@
+# .worktree-copy: manifest read by warm-worktrees.sh and by inventory-worktrees.sh
+# when it classifies a dirty file as "warm" (a copy this manifest re-creates
+# on every warm, as opposed to a real, uncommitted change).
+#
+# Format:
+#   - One path per line, relative to the bare clone root.
+#   - Blank lines and lines starting with # are skipped.
+#   - An optional second field, separated by whitespace, sets the copy mode:
+#       copy             (default when the field is absent) always overwrite
+#                        the destination with the source.
+#       copy-if-missing  copy only when the destination does not already
+#                        exist, so local edits in a worktree survive later
+#                        warms.
+#       link             symlink the destination to the source instead of
+#                        copying, so every worktree shares one file.
+#
+# Never list git internals here (HEAD, config, objects, refs, worktrees,
+# and similar); they live in the bare root for a different reason and
+# warm-worktrees.sh does not expect to see them in this file.
+#
+# Common candidates (uncomment and adjust the ones this repo needs):
+# .env.local
+# .envrc
+# .npmrc
+# .tool-versions
+# .mcp.json
+# .claude
+# .agents
+# .cursor
+# .kiro
+# AGENTS.local.md
+#
+# Enabled by default, since most projects need both copied into every worktree:
+.env
+.local
