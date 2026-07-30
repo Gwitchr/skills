@@ -1,11 +1,11 @@
 ---
 name: deslop
-description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, sycophantic openers, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing, among other clarity and readability fixes. Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
+description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, sycophantic openers, corporate-register verbs, stacked noun phrases, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing. Also curbs cadence habits (contrast frames, landing sentences, setup/payoff, rule-of-three flourishes, parallel sentence runs) without forbidding honest hedges or ordinary technical lists. Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
 ---
 
 # deslop
 
-Strip LLM tells from prose. Write plain, simple, and to the point: full sentences, ideas framed in simple terms, concrete facts over abstractions, conciseness above all. Every piece of jargon gets a plain-English explanation in parentheses, and every claim that cannot be verified gets labeled as such.
+Strip LLM tells from prose. Write plain, simple, and to the point: full sentences that read naturally aloud, ideas framed in simple terms, concrete facts over abstractions, conciseness above all. Prefer the spoken voice for word choice and rhythm, still with written grammar. Every piece of jargon gets a plain-English explanation in parentheses, and every claim that cannot be verified gets labeled as such.
 
 TRIGGER when: writing or editing any prose deliverable (justifications, PR/commit text, docs, reports, review verdicts, README copy); or when the user asks to deslop, humanize, or de-AI a piece of text.
 
@@ -36,26 +36,30 @@ The only exception is technical: the character is a literal or mandated by a con
 
 ### 2. Banned words and phrases
 
-**Filler intensifiers and hedges.** Delete or replace with the specific fact.
+**Filler intensifiers.** Delete or replace with the specific fact. Empty intensifiers add heat without information.
 
 - quietly ("quietly handles", "quietly fails")
 - honest / honestly / to be honest
-- genuinely, truly, simply, just
+- genuinely, really, truly, simply, just, actually (when empty: "actually works" with no contrast in play)
 - crucial, vital, essential (as filler intensifiers)
 - meticulous, meticulously
 
-**Stock verbs and metaphors.** Say the plain verb.
+**Stock and corporate-register verbs.** Say the plain verb. Corporate register is a tell when the verb names tone instead of action.
 
 - delve / delves into / dive into
 - navigate / navigating (as metaphor)
 - landscape (as metaphor), realm, tapestry
 - leverage / leverages (use "use")
+- underscore / underscoring (use "show", "prove", or name the evidence)
+- highlight / highlighting (as corporate emphasis; name the fact instead)
+- reflect / reflects ("this reflects our commitment" → say what changed)
+- surface / surfacing (as metaphor for "raise" or "show")
 - unlock, unleash, empower
 - bridging the gap
 - robust, seamless, seamlessly
 - ship (as a verb for delivering work; say the concrete action: merge, release, include)
 
-**Throat-clearing connectors.** Prefer plain connectors or a new sentence.
+**Throat-clearing openers and connectors.** Prefer plain connectors, a new sentence, or starting on the fact. Delete openers that delay the claim.
 
 - it's worth noting that, it's important to note, note that
 - in essence, in summary, at its core, fundamentally
@@ -63,14 +67,19 @@ The only exception is technical: the character is a literal or mandated by a con
 - not only ... but also
 - whether ... or (as a rhetorical pair)
 - a testament to, stands as, serves as
+- "In today's ...", "At a high level,", "To be clear,", "That said," when they only stall
 
-**Contrast frames.** The "it's not X, it's Y" device (contrastive negation) and its variants: "this isn't about X, it's about Y", "not because X, but because Y", "the problem isn't X. The problem is Y." Once per document it can carry a point; as a recurring rhythm it is a tell. State what the thing is directly, and mention what it is not only when the reader would otherwise assume the wrong thing.
+**Contrast frames and antithesis.** Habit, not one-strike ban. The "it's not X, it's Y" device (corrective negation) and its variants: "this isn't about X, it's about Y", "not because X, but because Y", "the problem isn't X. The problem is Y." Balanced antithesis for rhythm ("small change, large impact") is the same family. Once per document a contrast can disambiguate; as a recurring rhythm it is a tell. State what the thing is directly. Mention what it is not only when the reader would otherwise assume the wrong thing. Keep ordinary engineering negation ("do not use the admin token in CI"; "this is not a schema migration") when it prevents a real misread.
 
-**Cadence and rhetorical clichés.** Structural tells, not single words. Each is tolerable once; as a habit they mark generated text. Delete the frame and state the point plainly.
+**Cadence and form tells.** Structural tells, not single words. Each is tolerable once; as a habit they mark generated text. Delete the frame and state the point plainly. Severity is "recurring rhythm," not "never use three items" or "never coordinate clauses."
 
-- **"No X, no Y" chains.** Two or more "no ..." items in a row ("No sign-ups, no downloads, no hassle"). Rewrite as a plain sentence or a normal list.
-- **"Did not X, did not Y" chains.** The same with "did not" or "didn't" ("Did not flinch, did not blink, did not reach for the pen").
+- **"No X, no Y" chains and negative anaphora.** Two or more "no ..." items in a row, or short negative sentences repeating the same open ("No sign-ups, no downloads, no hassle"; "No retries. No backoff. No mercy."). Rewrite as a plain sentence or a normal list of facts.
+- **"Did not X, did not Y" chains** (negative parallelism). The same with "did not" or "didn't" ("Did not flinch, did not blink, did not reach for the pen").
 - **"Don't call it X, call it Y."** A negated verb plus "it", then the same verb plus "it" ("Don't call it a rewrite, call it a rescue"). Say what the thing is.
+- **Rule-of-three flourishes.** Three adjectives, promises, or slogans stacked for cadence ("faster, cleaner, and more delightful"). Three real entities, tests, or criteria are fine; ban the flourish, not the count.
+- **Setup/payoff constructions.** Delay the fact for theater ("Here's the surprising part…", "What happens next is…", "The twist:"). Put the fact first; context after if needed.
+- **Landing sentences.** A paragraph-final punchline that re-sells or cleverly restates instead of adding a fact ("That's the real win.", "And that changes everything."). End when the fact is complete.
+- **Summary beats.** Mid-doc or closing restates that rephrase what the reader already has ("In short…", "Overall…", "The takeaway is…") when no new decision or constraint follows. Covered also by rule 6 (no circling).
 - **"That's the whole point / game / thing."** Drop the frame; give the point itself.
 - **"X is the entire point / game / business model"** and its flip **"The entire point is ..."**. Name X directly.
 - **"Sit with that (for a moment)"**, "sit with the discomfort". Therapist voice; delete it.
@@ -80,7 +89,7 @@ The only exception is technical: the character is a literal or mandated by a con
 - **"It's worth naming that ..."**, "that loss is worth naming", "Worth naming:". Delete it.
 - **"That's not nothing."** Say what the thing is worth.
 
-**Sycophancy.** Never open with Certainly!, Of course!, Great question!, Absolutely!. The same ban applies mid-response: no "you're totally right", "great point", "excellent catch", "that's a fair point". When the reader or user is right, act on the correction; do not praise it.
+**Sycophancy and performed enthusiasm.** Never open with Certainly!, Of course!, Great question!, Absolutely!. The same ban applies mid-response: no "you're totally right", "great point", "excellent catch", "that's a fair point". No cheerleading register: "excited to", "thrilled", "huge win", "love this", fake energy, or decorative exclamation. When the reader or user is right, act on the correction; do not praise it. Confidence is in the claim and the evidence, not in the performance.
 
 ### 3. Name the concrete thing
 
@@ -110,19 +119,28 @@ Gloss a term the first time it appears in a document, not on every repeat. Keep 
 
 Full sentences, but no padding. Every sentence must carry a fact the reader needs. If a sentence restates the previous one or exists to sound thorough, delete it. Conciseness means fewer sentences, not compressed fragments.
 
+**Unpack stacked noun phrases.** Three or more abstract nouns in a row usually hide who does what. Rewrite as actor + verb + object.
+
+- Before: "the authentication session token refresh policy configuration"
+- After: "the policy that controls when session tokens refresh"
+
+**Prefer verbs over padding nominalizations.** A noun form is fine when it is the domain name (`authentication`, `isolation`, `serialization`). It is padding when it buries the action: "the implementation of the migration" → "the migration implements X" / "we implement the migration"; "utilization of the cache" → "use the cache". Ask who does what; put that verb in the sentence.
+
 ### 6. State claims once, at true strength
 
 Three failure modes, one rule: say exactly what you can support, and say it once.
 
 - **No overselling.** State the measured effect ("cuts p95 latency from 800ms to 200ms"), never the advertisement ("dramatically faster", "completely eliminates"). If there is no measurement, describe what the change does mechanically and stop there.
-- **No doubting.** Stacked hedges ("might possibly", "it seems it could", "should probably work") read as doubt without saying anything. When uncertainty is real, use one plain hedge or the [Unverified] label; when it is not, state the claim.
-- **No circling.** Make a point once. No closing summary that restates the document, no "overall" paragraph, no rephrased second sentence saying the same thing.
+- **No doubting.** Stacked hedges ("might possibly", "it seems it could", "should probably work") and theatrical doubt read as uncertainty without content. When uncertainty is real, use one plain hedge or the [Unverified] label; when it is not, state the claim. Do not strip honest single hedges to sound confident. Verification rules win over cadence polish.
+- **No circling.** Make a point once. No closing summary that restates the document, no "overall" paragraph, no rephrased second sentence saying the same thing, no landing sentence that only re-sells the paragraph.
 
 ### 7. Grammar and rhythm
 
 - **Complete, grammatical sentences.** No fragments, no broken syntax, no verbless phrases posing as sentences. Bullets may be phrases only when every item in the list is parallel.
-- **Vary sentence length.** A run of same-shaped sentences ("X does Y. Z does W. A handles B.") reads as generated. Mix short declaratives with longer sentences that carry the subordinate detail.
-- **One idea per paragraph, stated in its first sentence.** A reader skimming only first sentences should still get the whole argument.
+- **Spoken voice, written grammar.** Prefer words and rhythm that survive being read aloud: short clauses, plain verbs, concrete nouns. Still write full sentences. Do not imitate chat fragments, false starts, or stylized slogan chains (parataxis as performance). Ordinary coordination and short imperative steps are fine ("Clone the repo. Install deps. Run the tests.").
+- **Vary sentence length for sense.** A run of same-shaped sentences ("X does Y. Z does W. A handles B.") reads as generated. Mix short declaratives with longer sentences that carry subordinate detail. Do not vary length at random; vary it so the important fact is easy to hear.
+- **No parallel sentence stacks inside a paragraph.** Within one paragraph of prose, do not run three or more sentences with the same template (subject-verb-object clones, repeated "It …" opens, mirrored clauses). Merge into one sentence, use a list when the items are enumerable, or change the structure. Parallel shape in bullets and tables remains required when items are parallel.
+- **One idea per paragraph, stated in its first sentence.** A reader skimming only first sentences should still get the whole argument. That opening sentence is scope, not a theatrical pin. Do not end the same paragraph by restating the opener in slogan form.
 - **One name per thing.** Pick a name for each component, file, or concept and keep it for the whole document. Rotating synonyms ("the helper", "the utility", "the function") forces the reader to re-map.
 - **Conclusions, not the journey.** "First I checked X, then I noticed Y, which led me to Z" is process narration. Write "Z, because Y." The reader needs the finding, not the tour.
 
@@ -133,7 +151,7 @@ Sentence-level rules adopted from Google's developer documentation style guide a
 - **Active voice.** Name the actor: "the parser rejects the input", not "the input is rejected". Passive only when the actor is unknown or irrelevant.
 - **Second person in instructions.** When telling the reader what to do, write "you" or the bare imperative, not "we". "We recommend setting a timeout" becomes "set a timeout". Statements of fact ("we merged the fix") are unaffected.
 - **Present tense.** Describe behavior in the present: "returns null", not "will return null". Future tense only for events actually in the future.
-- **Precise verbs.** Replace "there is / there are" and weak verbs (is, occurs, happens) with the verb naming the action: "there are three ways the job fails" becomes "the job fails three ways".
+- **Precise verbs.** Replace "there is / there are" and weak verbs (is, occurs, happens) with the verb naming the action: "there are three ways the job fails" becomes "the job fails three ways". Same pressure as rule 5: unpack noun stacks and padding nominalizations into named actions.
 - **No ambiguous pronouns.** If "it", "this", or "they" could point at more than one noun, repeat the noun.
 - **One idea per sentence.** A sentence carrying two ideas becomes two sentences.
 - **Conditions before instructions.** "If the build fails, check the lockfile", never "Check the lockfile if the build fails". The reader decides whether the instruction applies before reading it.
@@ -181,12 +199,14 @@ When the tree lands on a before/after table (node E): keep the Before and After 
 When asked to deslop existing text:
 
 1. **Scan for em dashes first.** They are the most reliable tell and mechanical to find (`—`, `–`, ` -- `). A plain hyphen `-` is never a hit. Skip hits covered by rule 1's technical exception (code, quotes, the character as subject).
-2. **Sweep the banned lists** in Hard rules order. For each hit, decide: delete (filler), swap for the plain word (stock verbs), or rewrite around the concrete fact (abstraction words).
-3. **Assume no domain knowledge.** Find every technical term, acronym, and abbreviation a non-expert reader would have to look up; gloss the terms and expand the short forms on first use (Hard rule 4).
-4. **Apply the Verification rules.** Label anything unverified, timestamp versions, and strip absolute claims (prevents, guarantees, will never) that have no source.
-5. **Check the structure.** Demote tables that should be bullets and bullets that should be prose, delete headings without enough content under them, flatten nesting past two levels, move prose out of table cells and diagram nodes into annotations below them, cut closing summaries that restate the document, fix title-case headings to sentence case, and rewrite "here" links to name their destination.
-6. **Reread each rewritten sentence aloud-style.** If the fix produced a fragment or a comma splice that reads worse than the original, restructure the sentence instead of patching the word.
-7. **Verify meaning survived.** Diff the claims, not the words: every fact in the original must still be in the result, and no new fact may appear.
+2. **Sweep the banned lists** in Hard rules order. For each hit, decide: delete (filler), swap for the plain word (stock or corporate verbs), or rewrite around the concrete fact (abstraction words).
+3. **Scan cadence and form tells.** Contrast frames used as rhythm, "No X, no Y" / negative anaphora, rule-of-three flourishes, setup/payoff delays, landing sentences, summary beats, performed enthusiasm. Delete the frame; keep the fact. Leave a single disambiguating contrast or a factual three-item list alone.
+4. **Unpack noun stacks and padding nominalizations.** Find abstract noun piles and "the X of the Y" constructions that hide the actor; rewrite as who does what (Hard rule 5).
+5. **Assume no domain knowledge.** Find every technical term, acronym, and abbreviation a non-expert reader would have to look up; gloss the terms and expand the short forms on first use (Hard rule 4).
+6. **Apply the Verification rules.** Label anything unverified, timestamp versions, and strip absolute claims (prevents, guarantees, will never) that have no source. Keep one plain hedge when uncertainty is real; do not remove hedges only to sound bold.
+7. **Check the structure.** Demote tables that should be bullets and bullets that should be prose, delete headings without enough content under them, flatten nesting past two levels, move prose out of table cells and diagram nodes into annotations below them, cut closing summaries that restate the document, fix title-case headings to sentence case, and rewrite "here" links to name their destination.
+8. **Reread each rewritten sentence aloud-style.** Check spoken rhythm, parallel sentence stacks inside paragraphs, and same-shaped runs. If the fix produced a fragment or a comma splice that reads worse than the original, restructure the sentence instead of patching the word.
+9. **Verify meaning survived.** Diff the claims, not the words: every fact in the original must still be in the result, and no new fact may appear.
 
 When writing fresh prose, apply the rules at draft time; do not write slop and then clean it.
 
@@ -194,14 +214,17 @@ When writing fresh prose, apply the rules at draft time; do not write slop and t
 
 ## Replacement heuristic
 
-When a banned word is doing real work, the fix is never a synonym lookup. Ask: what specific fact was this word gesturing at? Write that fact.
+When a banned word or form is doing real work, the fix is never a synonym lookup or a mirrored opposite. Ask: what specific fact was this gesturing at? Write that fact.
 
 - "robust error handling" → what does it handle? "retries on 429 and times out after 30s"
 - "this is crucial" → why? "auth breaks without it"
 - "seamlessly integrates" → how? "no config changes needed"
 - "a coverage gap" → which one? "no test for the empty-array case"
+- "this underscores the need for retries" → what failed? "without retries, the job drops events on 429"
+- "the implementation of caching" → who does what? "the worker reads from the cache before calling the API"
+- "It's not a rewrite, it's a rescue" → what is it? "the change restores the broken import path"
 
-If there is no specific fact behind the word, the sentence was padding. Delete it.
+If there is no specific fact behind the word or frame, the sentence was padding. Delete it.
 
 ---
 
@@ -239,7 +262,9 @@ A claim inherits the trust level of its weakest source. When citing, name the so
 ## Anti-patterns
 
 - ❌ **Synonym-swapping.** Replacing "delve into" with "explore" or "robust" with "resilient" keeps the tell, only the vocabulary changed. Rewrite around the concrete fact.
-- ❌ **Over-correcting into fragments.** Terse is not the goal; plain is. Full sentences, plain words.
+- ❌ **Over-correcting into fragments.** Terse is not the goal; plain is. Full sentences, plain words. Spoken voice is not chat-fragment cosplay.
+- ❌ **Ban theater.** Turning every three-item list into two or four items, stripping every "not", or forbidding ordinary "and" coordination to avoid "rule of three" / "parataxis" / "negation." Ban the flourish and the recurring rhythm, not factual lists, disambiguating negation, or normal sentence coordination.
+- ❌ **Confidence by deleting hedges.** Removing a real single hedge or an [Unverified] label to sound decisive violates verification. Stacked theatrical doubt goes; honest uncertainty stays.
 - ❌ **Editing quoted or generated text.** Error messages, third-party quotes, and generated file content stay verbatim even when they contain banned words.
 - ❌ **Changing claims while changing words.** "Oversells the change" rewritten as "the writeup is wrong" altered the claim. The rewrite must state the same mismatch: "the writeup claims X, but the diff only does Y."
-- ❌ **Treating the ban list as exhaustive.** The lists cover the most common tells, not all of them. Any word pattern that pattern-matches to AI-generated prose (rule-of-three lists in every paragraph, "In today's fast-paced world" openers, paragraph-final "overall" summaries) falls under the same rules.
+- ❌ **Treating the ban list as exhaustive.** The lists cover the most common tells, not all of them. Any word or form pattern that pattern-matches to AI-generated prose (rule-of-three flourishes in every paragraph, "In today's fast-paced world" openers, paragraph-final "overall" or landing slogans, antithesis as default rhythm) falls under the same rules.
