@@ -43,6 +43,7 @@ The only exception is technical: the character is a literal or mandated by a con
 - genuinely, really, truly, simply, just, actually (when empty: "actually works" with no contrast in play)
 - crucial, vital, essential (as filler intensifiers)
 - meticulous, meticulously
+- load-bearing
 
 **Stock and corporate-register verbs.** Say the plain verb. Corporate register is a tell when the verb names tone instead of action.
 
