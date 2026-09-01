@@ -24,5 +24,9 @@ yarn-error.log*
 # Dependency dirs
 node_modules/
 
+# Python
+__pycache__/
+*.pyc
+
 # Worktrees skill: test harness stays local, not published
 worktrees/tests/
