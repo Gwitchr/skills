@@ -1,6 +1,6 @@
 ---
 name: deslop
-description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, sycophantic openers, corporate-register verbs, stacked noun phrases, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing. Also curbs cadence habits (contrast frames, landing sentences, setup/payoff, rule-of-three flourishes, parallel sentence runs) without forbidding honest hedges or ordinary technical lists. Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
+description: Enforce plain, concise, verifiable writing free of LLM tells in any prose output, justifications, PR descriptions, commit messages, docs, review comments, reports, or user-facing copy. Bans em dashes, filler intensifiers, metaphor clichés, mannered metaphor (decorative metaphor where a literal phrase exists), sycophantic openers, corporate-register verbs, stacked noun phrases, and vague abstraction words (gap, win, drive, sell) in favor of naming the concrete thing. Also curbs cadence habits (contrast frames, landing sentences, setup/payoff, rule-of-three flourishes, parallel sentence runs) without forbidding honest hedges or ordinary technical lists. Use when the user says "deslop", "remove LLM tells", "make this not sound like AI", "humanize this text", "clean up the writing", or before submitting any written deliverable.
 ---
 
 # deslop
@@ -72,6 +72,8 @@ The only exception is technical: the character is a literal or mandated by a con
 
 **Contrast frames and antithesis.** Habit, not one-strike ban. The "it's not X, it's Y" device (corrective negation) and its variants: "this isn't about X, it's about Y", "not because X, but because Y", "the problem isn't X. The problem is Y." Balanced antithesis for rhythm ("small change, large impact") is the same family. Once per document a contrast can disambiguate; as a recurring rhythm it is a tell. State what the thing is directly. Mention what it is not only when the reader would otherwise assume the wrong thing. Keep ordinary engineering negation ("do not use the admin token in CI"; "this is not a schema migration") when it prevents a real misread.
 
+**Mannered metaphor.** A decorative metaphor standing where a literal phrase exists: "a dial worth turning" for "a parameter worth varying", "this point earns its keep" for "this point still matters", "does the heavy lifting" for "does most of the work". The phrase exists to display the writer, not to carry the idea, and it is imprecise: a metaphor drags in connotations the writer did not choose and cannot control. When a literal phrase is available, use it. Established technical metaphors that name a concept (a memory leak, a bottleneck, a race condition) are terms, not flourishes; keep them.
+
 **Cadence and form tells.** Structural tells, not single words. Each is tolerable once; as a habit they mark generated text. Delete the frame and state the point plainly. Severity is "recurring rhythm," not "never use three items" or "never coordinate clauses."
 
 - **"No X, no Y" chains and negative anaphora.** Two or more "no ..." items in a row, or short negative sentences repeating the same open ("No sign-ups, no downloads, no hassle"; "No retries. No backoff. No mercy."). Rewrite as a plain sentence or a normal list of facts.
@@ -140,6 +142,7 @@ Three failure modes, one rule: say exactly what you can support, and say it once
 - **Complete, grammatical sentences.** No fragments, no broken syntax, no verbless phrases posing as sentences. Bullets may be phrases only when every item in the list is parallel.
 - **Spoken voice, written grammar.** Prefer words and rhythm that survive being read aloud: short clauses, plain verbs, concrete nouns. Still write full sentences. Do not imitate chat fragments, false starts, or stylized slogan chains (parataxis as performance). Ordinary coordination and short imperative steps are fine ("Clone the repo. Install deps. Run the tests.").
 - **Vary sentence length for sense.** A run of same-shaped sentences ("X does Y. Z does W. A handles B.") reads as generated. Mix short declaratives with longer sentences that carry subordinate detail. Do not vary length at random; vary it so the important fact is easy to hear.
+- **No dense-packed prose.** Padding is not the only failure; compression is one too. Sentences that run long on stacked clauses, and paragraphs that never break, are as much a tell as filler. Split a sentence carrying two ideas (rule 8), and start a new paragraph at each change of idea; a paragraph that fills a screen is a structure problem, not a style choice.
 - **No parallel sentence stacks inside a paragraph.** Within one paragraph of prose, do not run three or more sentences with the same template (subject-verb-object clones, repeated "It …" opens, mirrored clauses). Merge into one sentence, use a list when the items are enumerable, or change the structure. Parallel shape in bullets and tables remains required when items are parallel.
 - **One idea per paragraph, stated in its first sentence.** A reader skimming only first sentences should still get the whole argument. That opening sentence is scope, not a theatrical pin. Do not end the same paragraph by restating the opener in slogan form.
 - **One name per thing.** Pick a name for each component, file, or concept and keep it for the whole document. Rotating synonyms ("the helper", "the utility", "the function") forces the reader to re-map.
@@ -165,7 +168,7 @@ Sentence-level rules adopted from Google's developer documentation style guide a
 Formatting is part of the prose. Decide the document's shape before writing: how many sections it needs, how deep the hierarchy goes, and what belongs in prose versus a list.
 
 - **Prose is the default.** Use bullets only for parallel, enumerable items. Use a table only when every row is one entity carrying two or more short, non-prose values (a number, a name, a status, a short label) under shared columns, so the reader scans down a column to compare. If any column holds sentences, or a row has only one value worth showing, it is not tabular data: a two-column table whose second column is free text is a bulleted list in costume, and a bulleted list of full sentences with no parallel shape is a paragraph in costume.
-- **Headers earn their place.** A heading needs at least a paragraph beneath it and a document long enough to need navigation. Never two headings in a row with nothing between them, and never a heading over a single sentence.
+- **Headers need content beneath them.** A heading needs at least a paragraph beneath it and a document long enough to need navigation. Never two headings in a row with nothing between them, and never a heading over a single sentence.
 - **Cap the hierarchy before writing.** Decide how many nesting levels the document actually needs; two heading levels and two bullet levels cover almost any document. Needing a third level means the grouping is wrong, so restructure instead of nesting deeper.
 - **Balance sections.** Sections at the same level should carry comparable weight. A three-line section beside a sixty-line sibling means merge the small one or split the large one.
 - **Keep one narrative.** The document reads top to bottom as a single argument, and each section advances it. If a section could be deleted without breaking the argument, delete it.
@@ -201,7 +204,7 @@ When asked to deslop existing text:
 
 1. **Scan for em dashes first.** They are the most reliable tell and mechanical to find (`—`, `–`, ` -- `). A plain hyphen `-` is never a hit. Skip hits covered by rule 1's technical exception (code, quotes, the character as subject).
 2. **Sweep the banned lists** in Hard rules order. For each hit, decide: delete (filler), swap for the plain word (stock or corporate verbs), or rewrite around the concrete fact (abstraction words).
-3. **Scan cadence and form tells.** Contrast frames used as rhythm, "No X, no Y" / negative anaphora, rule-of-three flourishes, setup/payoff delays, landing sentences, summary beats, performed enthusiasm. Delete the frame; keep the fact. Leave a single disambiguating contrast or a factual three-item list alone.
+3. **Scan cadence and form tells.** Contrast frames used as rhythm, mannered metaphor, "No X, no Y" / negative anaphora, rule-of-three flourishes, setup/payoff delays, landing sentences, summary beats, performed enthusiasm. Delete the frame; keep the fact; swap a mannered metaphor for the literal phrase. Leave a single disambiguating contrast, a factual three-item list, or a technical term that happens to be a metaphor alone.
 4. **Unpack noun stacks and padding nominalizations.** Find abstract noun piles and "the X of the Y" constructions that hide the actor; rewrite as who does what (Hard rule 5).
 5. **Assume no domain knowledge.** Find every technical term, acronym, and abbreviation a non-expert reader would have to look up; gloss the terms and expand the short forms on first use (Hard rule 4).
 6. **Apply the Verification rules.** Label anything unverified, timestamp versions, and strip absolute claims (prevents, guarantees, will never) that have no source. Keep one plain hedge when uncertainty is real; do not remove hedges only to sound bold.
@@ -224,6 +227,7 @@ When a banned word or form is doing real work, the fix is never a synonym lookup
 - "this underscores the need for retries" → what failed? "without retries, the job drops events on 429"
 - "the implementation of caching" → who does what? "the worker reads from the cache before calling the API"
 - "It's not a rewrite, it's a rescue" → what is it? "the change restores the broken import path"
+- "a dial worth turning" → the literal phrase: "a parameter worth varying"
 
 If there is no specific fact behind the word or frame, the sentence was padding. Delete it.
 
