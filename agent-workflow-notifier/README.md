@@ -12,7 +12,7 @@ A Claude Code hook that sends you a Slack direct message (DM) when an agent fini
 
 Each event becomes one message: a title (`✅ Finished`, `❓ Needs your input`, `🔐 Needs your input: permission`), the repo and branch, the agent name and session id, the first prompt of the session, and the last assistant message or the pending question.
 
-The hook posts with `curl` and a bot token it fetches once from the Slack CLI's session and caches at mode 600. Only when the cache is empty and the CLI session has expired does it fall back to `slack api`, which refreshes the session so the next send fills the cache. Turns shorter than `SLACK_NOTIFIER_MIN_SECONDS` (default 120) are skipped on the assumption that you were watching. `SLACK_NOTIFIER_DRY_RUN=1` prints the message instead of sending it.
+The hook posts with `curl` and a bot token it fetches once from the Slack CLI's session and caches at mode 600. Only when the cache is empty and the CLI session has expired does it fall back to `slack api`, which refreshes the session so the next send fills the cache. A `Stop` after a turn shorter than `SLACK_NOTIFIER_MIN_SECONDS` (default 120) is skipped on the assumption that you were watching; permission prompts and questions always send. `SLACK_NOTIFIER_DRY_RUN=1` prints the message instead of sending it.
 
 ## Install
 

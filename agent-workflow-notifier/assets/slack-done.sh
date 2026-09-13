@@ -3,7 +3,8 @@
 # Reads the hook payload on stdin. Config: ~/.claude/agent-workflow-notifier.env, then <cwd>/.env.
 # Bot token: SLACK_NOTIFIER_TOKEN, else the cache file SLACK_NOTIFIER_TOKEN_FILE, else fetched once
 # through apps.developerInstall with the Slack CLI session, else sent through the CLI.
-# Sends only when the turn ran at least SLACK_NOTIFIER_MIN_SECONDS (default 120) since the last user prompt.
+# Stop and SubagentStop are sent only when the turn ran at least SLACK_NOTIFIER_MIN_SECONDS (default 120)
+# since the last user entry; Notification and PreToolUse are sent at any age.
 set -u
 
 LOG="$HOME/.claude/hooks/slack-done.log"
@@ -55,9 +56,10 @@ fi
 [[ -n "$SLACK_NOTIFIER_USER" ]] || { log "SLACK_NOTIFIER_USER unset; skipping"; exit 0; }
 
 # ---------- duration gate: a short turn means the user is still at the screen ----------
-# Elapsed time is measured from the last user prompt in the transcript. No transcript,
+# Applies to Stop and SubagentStop only; a permission prompt or a question is sent at any age.
+# Elapsed time is measured from the last user entry in the transcript. No transcript,
 # or SLACK_NOTIFIER_MIN_SECONDS=0, sends every time.
-if [[ "$SLACK_NOTIFIER_MIN_SECONDS" =~ ^[0-9]+$ && "$SLACK_NOTIFIER_MIN_SECONDS" -gt 0 && -n "$transcript" && -f "$transcript" ]]; then
+if [[ "$event" == Stop || "$event" == SubagentStop ]] && [[ "$SLACK_NOTIFIER_MIN_SECONDS" =~ ^[0-9]+$ && "$SLACK_NOTIFIER_MIN_SECONDS" -gt 0 && -n "$transcript" && -f "$transcript" ]]; then
   started="$(jq -rR '
     fromjson? | select(.type=="user") | select(.isMeta != true)
     | select((.message.content | if type=="string" then . elif type=="array" then (map(select(.type=="text") | .text) | join("")) else "" end) | length > 0)

@@ -5,7 +5,7 @@ description: Install, wire, or repair a Slack direct-message notifier for Claude
 
 # agent-workflow-notifier
 
-This skill installs a hook that sends the owner a Slack direct message (DM) when a Claude Code agent stops, needs a permission decision, or asks a question, and only when the turn ran long enough that the owner has likely walked away. Everything lives under `~/.claude` (one script, one config file, one Slack CLI project, one token cache) plus a hook block per repo. The skill is generic: no user id, app id, or team id is baked into any asset.
+This skill installs a hook that sends the owner a Slack direct message (DM) when a Claude Code agent needs a permission decision, asks a question, or stops after a turn long enough that the owner has likely walked away. Everything lives under `~/.claude` (one script, one config file, one Slack CLI project, one token cache) plus a hook block per repo. The skill is generic: no user id, app id, or team id is baked into any asset.
 
 TRIGGER when: the user wants Slack messages from Claude Code, asks to install or repair the notifier, wants a hook that reports when an agent finishes or waits for input, or names this skill.
 
@@ -54,12 +54,12 @@ The hook reads `~/.claude/agent-workflow-notifier.env` first, then `<cwd>/.env`,
 | `SLACK_NOTIFIER_TOKEN` | no | Bot token; skips the cache and the CLI entirely |
 | `SLACK_NOTIFIER_TOKEN_FILE` | no | Token cache path, default `~/.claude/agent-workflow-notifier.token` |
 | `SLACK_NOTIFIER_EVENTS` | no | Comma-separated hook events to send; others are dropped |
-| `SLACK_NOTIFIER_MIN_SECONDS` | no | Minimum turn length before a send, default `120`; `0` sends every time |
+| `SLACK_NOTIFIER_MIN_SECONDS` | no | Minimum turn length before a `Stop` or `SubagentStop` send, default `120`; `0` sends every time |
 | `SLACK_NOTIFIER_CLI` | no | Path to the `slack` binary when it is not on `PATH` |
 
 Without `SLACK_NOTIFIER_CLI` the hook looks on `PATH`, then `~/.local/bin/slack`, then `~/.slack/bin/slack`. `SLACK_NOTIFIER_DRY_RUN=1` in the environment prints the message to stdout and exits before any network call, including the token fetch.
 
-The duration gate applies to every event. The hook reads the timestamp of the last user prompt in `transcript_path`, and when fewer than `SLACK_NOTIFIER_MIN_SECONDS` have passed it logs `skipped <event>: turn took Ns` and exits, on the assumption that the user is still at the screen after a short turn. A payload with no transcript is sent every time.
+The duration gate applies to `Stop` and `SubagentStop` only. The hook reads the timestamp of the last user entry in `transcript_path`, and when fewer than `SLACK_NOTIFIER_MIN_SECONDS` have passed it logs `skipped <event>: turn took Ns` and exits, on the assumption that the user is still at the screen after a short turn. Any user entry resets that clock, including an answer to a question dialog and a harness nudge to the agent, not only a typed prompt. `Notification` and `PreToolUse` are sent at any age, because a blocked agent is the case the notifier exists for. A payload with no transcript is sent every time.
 
 ## What the message says
 
@@ -74,7 +74,7 @@ One message per event, in mrkdwn (Slack's markdown dialect):
 
 The repo name comes from `git rev-parse --git-common-dir` on the session's `cwd` (the bare clone directory for a worktree, the checkout for a plain repo), the branch from `git symbolic-ref`, the task from the first user prompt in `transcript_path`, and the agent from the payload's `agent_type`, else `$CLAUDE_AGENT_NAME`, else `claude`.
 
-Which title the hook picks, once the duration gate has passed:
+Which title the hook picks:
 
 - `Stop`: `✅ Finished`, unless the last paragraph of `last_assistant_message` contains a `?` or one of `let me know`, `should i`, `do you want`, `would you like`, `which one`, `which option`, `your call`, `confirm`, `choose`, `pick one`; then `❓ Needs your input`. This is a text heuristic on the final paragraph, so a closing offer with a question mark reads as a question.
 - `Notification` with `notification_type` `permission_prompt`: `🔐 Needs your input: permission`. `elicitation_dialog`: `❓ Needs your input`. `idle_prompt`: dropped.
@@ -163,7 +163,7 @@ A `FAILED` line in the log carries Slack's error string. `messages_tab_disabled`
 ## Tuning
 
 - **Fewer messages.** Set `SLACK_NOTIFIER_EVENTS=Notification,PreToolUse` to hear only when the agent is blocked, or drop the `Stop` entry from the hook block.
-- **Shorter or longer turns.** Raise `SLACK_NOTIFIER_MIN_SECONDS` to hear only about long runs, or set it to `0` to hear about every turn.
+- **Shorter or longer turns.** Raise `SLACK_NOTIFIER_MIN_SECONDS` to hear only about long runs, or set it to `0` to hear about every turn. The key changes `Stop` and `SubagentStop` only; permission prompts and questions always send.
 - **Subagents.** Add a `SubagentStop` entry to the hook block with the same command; the hook already formats it.
 - **A channel instead of a DM.** Set `SLACK_NOTIFIER_CHANNEL` to a channel id and invite the bot to that channel.
 - **Per-repo overrides.** Put any `SLACK_NOTIFIER_*` key in the repo's `.env`; the hook reads it after the global file.
