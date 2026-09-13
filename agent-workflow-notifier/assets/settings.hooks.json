@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "~/.claude/hooks/slack-done.sh", "async": true } ] }
+    ],
+    "Notification": [
+      { "matcher": "permission_prompt|elicitation_dialog",
+        "hooks": [ { "type": "command", "command": "~/.claude/hooks/slack-done.sh", "async": true } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "AskUserQuestion",
+        "hooks": [ { "type": "command", "command": "~/.claude/hooks/slack-done.sh", "async": true } ] }
+    ]
+  }
+}

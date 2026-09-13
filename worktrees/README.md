@@ -56,8 +56,9 @@ With `--remove`, each removal also tries to delete the worktree's branch with `g
 - `copy` (the default when the field is absent): always overwrite the destination.
 - `copy-if-missing`: copy only if the destination does not already exist, so a worktree's local edits survive future warms.
 - `link`: symlink the destination to the source instead of copying, so every worktree shares one file.
+- `merge-json`: deep-merge the source JSON into the destination with `jq` (objects merge key by key, arrays keep the destination's items and append new ones, other values come from the source). A missing destination is a plain copy; a destination that is not valid JSON is refused. Use it for `.claude/settings.local.json` so a shared hook block lands in every worktree while each worktree keeps its own permission list; the `agent-workflow-notifier` skill ships such a block.
 
-`assets/worktree-copy.template` lists the paths setup commonly offers (`.env.local`, `.envrc`, `.npmrc`, `.tool-versions`, `.mcp.json`, `.claude`, `.agents`, `.cursor`, `.kiro`, `AGENTS.local.md`) as commented examples, with `.env` and `.local` enabled by default since those are the two files most projects need copied into every worktree.
+`assets/worktree-copy.template` lists the paths setup commonly offers (`.env.local`, `.envrc`, `.npmrc`, `.tool-versions`, `.mcp.json`, `.claude`, `.agents`, `.cursor`, `.kiro`, `AGENTS.local.md`) as commented examples, plus `.claude/settings.local.json merge-json`, with `.env` and `.local` enabled by default since those are the two files most projects need copied into every worktree.
 
 ## AGENTS.md snippet
 

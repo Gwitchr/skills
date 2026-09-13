@@ -5,7 +5,7 @@ description: Install a self-contained worktree workflow into a bare git clone (a
 
 # worktrees
 
-This skill installs two bash scripts, a copy manifest, and a managed ignore block into a bare clone that holds linked worktrees. After setup the repo runs its own inventory and cleanup with no help from this skill; creating a worktree still means a plain `git worktree add`, and this skill never changes that.
+This skill installs two bash scripts, a copy manifest, and a managed ignore block into a bare clone that holds linked worktrees. After setup the repo runs its own inventory and cleanup with no help from this skill; creating a worktree still means a plain `git worktree add` followed by `./warm-worktrees.sh <name>`, which copies the manifest paths into the new worktree.
 
 TRIGGER when: the user asks about the state of their worktrees, wants an inventory of what each one is for, which ones are safe to delete, how to set up or onboard a repo onto this workflow, or wants to clean up merged worktrees without deleting anything by hand.
 
@@ -31,7 +31,8 @@ No installer script exists. The agent performs these steps directly, each one id
 # <<< wt managed <<<
 ```
 
-5. For a brand-new project, start here instead of step 1: run `git clone --bare <url> <dir>`, set `remote.origin.fetch` to `+refs/heads/*:refs/remotes/origin/*`, run `git fetch`, then `git remote set-head origin --auto`. Resolve the default branch from the now-set `refs/remotes/origin/HEAD` and add its worktree (`git worktree add <default> <default>`, run from `<dir>`). Continue into steps 2 through 4 against the new root.
+5. Shared Claude Code hooks, optional. When the owner uses the `agent-workflow-notifier` skill (a sibling of this one), `<root>/.claude/settings.local.json` holds the hook block every worktree gets, and the manifest line `.claude/settings.local.json merge-json` makes `warm-worktrees.sh` deep-merge it into each worktree's own `.claude/settings.local.json` (objects merge key by key, arrays union, so a worktree's permission list survives). That skill owns the hook block, the script it runs, and the Slack app; this step only appends the manifest line when it is absent and runs `./warm-worktrees.sh` once the root file exists. Never edit an existing root settings file without asking.
+6. For a brand-new project, start here instead of step 1: run `git clone --bare <url> <dir>`, set `remote.origin.fetch` to `+refs/heads/*:refs/remotes/origin/*`, run `git fetch`, then `git remote set-head origin --auto`. Resolve the default branch from the now-set `refs/remotes/origin/HEAD` and add its worktree (`git worktree add <default> <default>`, run from `<dir>`). Continue into steps 2 through 5 against the new root.
 
 ## Day-to-day: inventory first, removal second
 

@@ -30,3 +30,6 @@ __pycache__/
 
 # Worktrees skill: test harness stays local, not published
 worktrees/tests/
+
+# agent-workflow-notifier skill: eval prompts stay local, not published
+agent-workflow-notifier/evals/

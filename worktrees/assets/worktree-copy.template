@@ -13,6 +13,13 @@
 #                        warms.
 #       link             symlink the destination to the source instead of
 #                        copying, so every worktree shares one file.
+#       merge-json       deep-merge the source JSON into the destination:
+#                        objects merge key by key, arrays keep the
+#                        destination's items and append new ones, other
+#                        values come from the source. Needs jq. Use it for
+#                        .claude/settings.local.json so shared hooks land in
+#                        every worktree while each worktree keeps its own
+#                        permissions.
 #
 # Never list git internals here (HEAD, config, objects, refs, worktrees,
 # and similar); they live in the bare root for a different reason and
@@ -24,6 +31,7 @@
 # .npmrc
 # .tool-versions
 # .mcp.json
+# .claude/settings.local.json merge-json
 # .claude
 # .agents
 # .cursor

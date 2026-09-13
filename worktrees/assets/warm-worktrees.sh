@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# wt-warm-version: 1
+# wt-warm-version: 2
 
 set -euo pipefail
 
@@ -30,7 +30,9 @@ Default branch detection, first match wins:
 .worktree-copy format:
   One path per line, relative to the bare repo root. Blank lines and lines starting
   with # are skipped. An optional second field, separated by whitespace, sets the
-  copy mode: copy (default), copy-if-missing, or link. See worktree-copy.template.
+  copy mode: copy (default), copy-if-missing, link, or merge-json. See
+  worktree-copy.template. merge-json deep-merges the source JSON into the
+  destination (objects merge, arrays union, source scalars win) and needs jq.
 EOF
 }
 
@@ -74,6 +76,37 @@ detect_default_branch() {
   return 1
 }
 
+merge_json() {
+  # Deep-merge source into destination: objects merge key by key, arrays keep the
+  # destination's items and append source items not already present, and any
+  # other value is taken from the source. A missing destination is a plain copy.
+  local source_path="$1"
+  local destination_path="$2"
+
+  command -v jq >/dev/null 2>&1 || die "merge-json mode needs jq on PATH"
+  [[ -f "$source_path" ]] || die "merge-json source is not a file: $source_path"
+  jq -e . "$source_path" >/dev/null 2>&1 || die "merge-json source is not valid JSON: $source_path"
+
+  mkdir -p "$(dirname "$destination_path")"
+  if [[ ! -e "$destination_path" ]]; then
+    cp -f "$source_path" "$destination_path"
+    return 0
+  fi
+  jq -e . "$destination_path" >/dev/null 2>&1 || die "merge-json destination is not valid JSON, refusing to overwrite: $destination_path"
+
+  local merged
+  merged="$(jq -s '
+    def merge($a; $b):
+      if ($a | type) == "object" and ($b | type) == "object" then
+        reduce ($b | keys_unsorted[]) as $k ($a; .[$k] = merge($a[$k]; $b[$k]))
+      elif ($a | type) == "array" and ($b | type) == "array" then
+        $a + ($b - $a)
+      else $b end;
+    merge(.[0]; .[1])
+  ' "$destination_path" "$source_path")" || die "merge-json failed for $destination_path"
+  printf '%s\n' "$merged" > "$destination_path"
+}
+
 copy_path() {
   local source_path="$1"
   local destination_path="$2"
@@ -86,6 +119,10 @@ copy_path() {
     link)
       mkdir -p "$(dirname "$destination_path")"
       ln -sfn "$source_path" "$destination_path"
+      return 0
+      ;;
+    merge-json)
+      merge_json "$source_path" "$destination_path"
       return 0
       ;;
   esac
@@ -222,7 +259,7 @@ while IFS= read -r manifest_line || [[ -n "$manifest_line" ]]; do
   mode="${mode:-copy}"
 
   case "$mode" in
-    copy|copy-if-missing|link) ;;
+    copy|copy-if-missing|link|merge-json) ;;
     *) die "Unknown copy mode '$mode' for $file_path in $COPY_LIST" ;;
   esac
 
