@@ -181,14 +181,42 @@ export type AssetMetadata =
   | { type: "document";        pageCount: number };
 
 export function parseAssetMetadata(value: unknown): AssetMetadata | null {
-  if (!isRecord(value) || typeof value.type !== "string") return null;
-  // …discriminate on `value.type`, validate fields, return narrowed type or null
-}
+  if (typeof value !== "object" || value === null) return null;
+  if (!("type" in value) || typeof value.type !== "string") return null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  switch (value.type) {
+    case "image":
+      if (
+        "width" in value && typeof value.width === "number" &&
+        "height" in value && typeof value.height === "number"
+      ) {
+        return { type: "image", width: value.width, height: value.height };
+      }
+      return null;
+
+    case "generated_image":
+      if (
+        "prompt" in value && typeof value.prompt === "string" &&
+        "model" in value && typeof value.model === "string" &&
+        "index" in value && typeof value.index === "number"
+      ) {
+        return { type: "generated_image", prompt: value.prompt, model: value.model, index: value.index };
+      }
+      return null;
+
+    case "document":
+      if ("pageCount" in value && typeof value.pageCount === "number") {
+        return { type: "document", pageCount: value.pageCount };
+      }
+      return null;
+
+    default:
+      return null;
+  }
 }
 ```
+
+Every arm checks its own properties by name with `in` plus a `typeof` check. Don't replace that with a generic is-object predicate (`isRecord`, `isObject`), it proves nothing about the shape.
 
 Or use Zod and pick whichever validation pattern matches the rest of your project (`zod-prisma-tanstack` skill discusses the trade-off).
 

@@ -914,6 +914,7 @@ export default handler;
 ### Rules
 
 - Always validate input with Zod (`.parse(...)` for App Router / Pages Router / API routes, `.validator(schema.parse)` for TanStack Start server functions). Never trust raw input.
+- Where a hand-rolled check is unavoidable (raw driver results, `Json` columns), check concrete properties (`"x" in value` plus `typeof` per field, at least two when the shape has two or more). Generic is-object predicates (`isRecord`, `isObject`) are banned, they prove nothing about the shape.
 - Auth-required entry points: check session at the top of the handler (App Router, Start API routes), via dispatcher gate (Pages Router), or via middleware (Start server functions).
 - Call server actions from `<server>/actions/*`, **no direct Prisma in route files or server functions**.
 - Return consistent shapes: `{ articles, totalArticles }` for lists, `{ article }` for singles.

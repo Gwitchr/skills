@@ -13,7 +13,8 @@ Opinionated house style for React + TypeScript frontends.
 - Use `import type` for type-only imports.
 - Type component props explicitly with `interface`. Use `PropsWithChildren` when children are accepted.
 - Wrap component prop inputs in `Readonly<...>`.
-- Prefer `unknown` over `any`; narrow with type guards.
+- Prefer `unknown` over `any`; narrow with type guards that check concrete properties (`"x" in obj` plus `typeof obj.x === "..."`, at least two properties when the shape has two or more).
+- Never write a generic is-object predicate (`isRecord`, `isObject`). `typeof x === "object" && x !== null && !Array.isArray(x)` proves nothing about the shape.
 - Avoid non-null assertions (`!`); prefer optional chaining and explicit guards.
 
 ## Imports

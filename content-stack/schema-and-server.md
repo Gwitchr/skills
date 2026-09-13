@@ -116,7 +116,7 @@ The `const`-object + literal-union pattern is the canonical replacement for TS `
 
 ## Server functions
 
-All four are `createServerFn` from `@tanstack/react-start`. Validate input with Zod (preferred) or a hand-rolled `isRecord` predicate; pick one and stay consistent within the project.
+All four are `createServerFn` from `@tanstack/react-start`. Validate input with Zod (preferred) or hand-rolled per-property checks (`"x" in input` plus a `typeof` check per field); pick one and stay consistent within the project.
 
 ### `getPageStrings`, public read
 
@@ -290,7 +290,7 @@ export const upsertContentString = createServerFn({ method: "POST" })
 
 `VALID_STRING_ROLES` is duplicated from the Prisma enum because Prisma's generated `StringRole` is a TS type, not a runtime value. Keep this array in sync with the enum and with the `StringRole` union in `types.ts`, three-place sync, flagged as the most common drift point in this stack.
 
-> **A note on validation.** This skill leans on Zod for input validation. If your project hand-rolls validation with predicates (`isRecord`, custom `parseInput` helpers), the contract is the same, validate input before the handler runs and throw a typed error on bad input. Zod is the preferred default; hand-rolled validation is acceptable for projects that already use it consistently.
+> **A note on validation.** This skill leans on Zod for input validation. If your project hand-rolls validation (custom `parseInput` helpers), the contract is the same, validate input before the handler runs and throw a typed error on bad input. Hand-rolled checks test concrete properties, `"x" in input` plus a `typeof` check per field, and cover at least two properties when the shape has two or more. Generic is-object predicates (`isRecord`-style) are banned, they prove nothing about the shape. Zod is the preferred default; hand-rolled validation is acceptable for projects that already use it consistently.
 
 ---
 

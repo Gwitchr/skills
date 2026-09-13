@@ -200,7 +200,7 @@ Sign-in checks whether the email belongs to an existing user before sending the 
 ```ts
 export const checkUserEmailExists = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => {
-    if (!isRecord(input) || typeof input.email !== "string") {
+    if (typeof input !== "object" || input === null || !("email" in input) || typeof input.email !== "string") {
       throw new Error("Invalid email.");
     }
     return { email: input.email.trim().toLowerCase() };
@@ -314,6 +314,6 @@ export const updateSomething = createServerFn({ method: "POST" })
 
 Three rules this template encodes:
 
-1. **`validator(inputSchema.parse)` runs before the handler**, Zod throws a typed error with a user-facing message on bad input. (If you're on a project that hand-rolls validation with `isRecord` predicates, the contract is the same, just run validation before the handler.)
+1. **`validator(inputSchema.parse)` runs before the handler**, Zod throws a typed error with a user-facing message on bad input. (If you're on a project that hand-rolls validation, the contract is the same, just run validation before the handler. Hand-rolled checks must test concrete properties, `"x" in input` plus a `typeof` check per field, never a generic is-object predicate.)
 2. **Auth check is `requireAuthenticatedUser()`**, never duplicate `auth.api.getSession()`.
 3. **Return narrow shapes** (`select: { … }`), don't leak whole rows to the client.
