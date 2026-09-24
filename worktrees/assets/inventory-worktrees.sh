@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# inventory-worktrees-version: 1
+# inventory-worktrees-version: 2
 #
 # Take inventory of the linked worktrees of this repo: what each one holds, why
 # it exists, and which ones have landed and can go. Removal is the second step
@@ -10,6 +10,10 @@
 #   ./inventory-worktrees.sh            the inventory, changes nothing
 #   ./inventory-worktrees.sh --remove   remove the worktrees marked "would remove"
 #   ./inventory-worktrees.sh --no-gh    skip the pull request lookup
+#
+# The table fits the terminal width (COLUMNS, else the terminal's own width,
+# else 100 columns) instead of wrapping: long cells are cut, and on a narrow
+# terminal each worktree takes two lines.
 #
 # Portability: macOS default bash 3.2 and Linux bash 5. No associative arrays,
 # no line reading builtins from bash 4, no flag that differs between BSD and
@@ -38,6 +42,14 @@ Columns:
   DONE     how the work landed, if it did
   VERDICT  would remove, or kept and why
   REASON   the title of its pull request, or its last commit subject
+
+Width:
+  The table fits COLUMNS when that is set, the terminal's own width when
+  stdout is a terminal, and 100 columns otherwise. When the seven columns do
+  not fit, REASON, BRANCH and VERDICT are cut with a trailing ..., widest
+  first and never below 16, 16 and 20 characters. When even that is too wide, each worktree
+  takes two lines: NAME BRANCH AGE STATE DONE, then VERDICT and REASON
+  indented under it. A closing line says when this happened.
 
 A worktree is finished when either of these holds:
   1. its HEAD is contained in the default branch on the remote, or
@@ -377,24 +389,95 @@ short() {
   fi
 }
 
+# The width the table has to fit: COLUMNS when set, the terminal's own width
+# when stdout is one, and 100 columns otherwise (a tool running the script has
+# no terminal to ask). Never below 60.
+table_width() {
+  local w="${COLUMNS:-}"
+  if [ -z "$w" ] || [ "$w" = 0 ]; then
+    w=""
+    if [ -t 1 ]; then
+      w=$(tput cols 2>/dev/null || true)
+    fi
+  fi
+  case "$w" in
+    ''|*[!0-9]*) w=100 ;;
+  esac
+  if [ "$w" -lt 60 ]; then
+    w=60
+  fi
+  printf '%s' "$w"
+}
+
+# Print the table so that no line is wider than $2. First choice: one line per
+# worktree, trimming the widest of REASON, BRANCH and VERDICT one character at
+# a time, each down to a floor.
+# Second choice, when the floors still do not fit: two lines per worktree,
+# NAME BRANCH AGE STATE DONE and then VERDICT REASON indented under it. When
+# either happened, $3 is written so the caller can say so.
 render_table() {
-  awk -F"$US" '
+  awk -F"$US" -v width="$2" -v marker="$3" '
+    function cut(s, w) {
+      return (length(s) <= w) ? s : substr(s, 1, w - 3) "..."
+    }
+    function span(first, last,   i, t) {
+      t = 0
+      for (i = first; i <= last; i++) t += w[i] + (i > first ? 2 : 0)
+      return t
+    }
+    function fit(first, last, limit, order, n,   k, i, best) {
+      while (span(first, last) > limit) {
+        best = 0
+        for (k = 1; k <= n; k++) {
+          i = order[k]
+          if (w[i] > min[i] && (best == 0 || w[i] > w[best])) best = i
+        }
+        if (best == 0) break
+        w[best]--
+      }
+      return span(first, last) <= limit
+    }
+    function line(first, last, indent,   i, out) {
+      out = indent
+      for (i = first; i <= last; i++) {
+        if (i > first) out = out "  "
+        out = out sprintf("%-" w[i] "s", cut(cell[i], w[i]))
+      }
+      sub(/[ \t]+$/, "", out)
+      return out
+    }
     { rows[NR] = $0
       n = split($0, f, FS)
-      for (i = 1; i <= n; i++) if (length(f[i]) > w[i]) w[i] = length(f[i])
+      for (i = 1; i <= n; i++) if (length(f[i]) > nat[i]) nat[i] = length(f[i])
       if (n > cols) cols = n
     }
     END {
+      for (i = 1; i <= cols; i++) { w[i] = nat[i]; min[i] = nat[i] }
+      if (nat[7] > 16) min[7] = 16
+      if (nat[2] > 16) min[2] = 16
+      if (nat[6] > 20) min[6] = 20
+      order[1] = 7; order[2] = 2; order[3] = 6
+      stacked = 0
+      if (span(1, cols) > width) {
+        if (!fit(1, cols, width, order, 3)) {
+          stacked = 1
+          for (i = 1; i <= cols; i++) w[i] = nat[i]
+          top[1] = 2
+          fit(1, 5, width, top, 1)
+          bottom[1] = 7; bottom[2] = 6
+          fit(6, 7, width - 2, bottom, 2)
+        }
+        if (marker != "") printf "%d\n", width > marker
+      }
       for (r = 1; r <= NR; r++) {
         n = split(rows[r], f, FS)
-        line = ""
-        for (i = 1; i <= cols; i++) {
-          cell = (i <= n) ? f[i] : ""
-          if (i > 1) line = line "  "
-          line = line sprintf("%-" w[i] "s", cell)
+        for (i = 1; i <= cols; i++) cell[i] = (i <= n) ? f[i] : ""
+        if (stacked) {
+          print line(1, 5, "")
+          print line(6, 7, "  ")
+        } else {
+          print line(1, cols, "")
         }
-        sub(/[ \t]+$/, "", line)
-        print line
       }
     }
   ' "$1"
@@ -653,7 +736,8 @@ fi
   row "NAME" "BRANCH" "AGE" "STATE" "DONE" "VERDICT" "REASON"
   cat "$ROWS"
 } > "$TMPD/table"
-render_table "$TMPD/table"
+WIDTH=$(table_width)
+render_table "$TMPD/table" "$WIDTH" "$TMPD/fit"
 
 if [ "$DO_REMOVE" -eq 0 ]; then
   echo
@@ -664,6 +748,9 @@ if [ "$DO_REMOVE" -eq 0 ]; then
     else
       echo "re-run with --remove to remove $WOULD_REMOVE worktrees."
     fi
+  fi
+  if [ -s "$TMPD/fit" ]; then
+    echo "(fit to $WIDTH columns; set COLUMNS for a wider table)"
   fi
   exit 0
 fi
