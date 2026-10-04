@@ -7,12 +7,23 @@ A Claude Code hook that sends you a Slack direct message (DM) when an agent fini
 - The `slack` CLI 4.x, logged in with `slack auth login`.
 - `jq`, `curl`, git, bash 3.2 or newer.
 - Claude Code with `Stop`, `Notification`, and `PreToolUse` hooks.
+- Optional: the `claude` CLI for the summary bullets and `perl` for the time limit around it. Without them a finished turn shows the first sentence of the final message.
 
 ## What you get
 
-Each event becomes one message: a title (`✅ Finished`, `❓ Needs your input`, `🔐 Needs your input: permission`), the repo and branch, the agent name and session id, the first prompt of the session, and the last assistant message or the pending question.
+Each event becomes one message: a title (`✅ Finished`, `❓ Needs your input`, `🔐 Needs your input: permission`), the repo and branch, and the session title in italics.
 
-The hook posts with `curl` and a bot token it fetches once from the Slack CLI's session and caches at mode 600. Only when the cache is empty and the CLI session has expired does it fall back to `slack api`, which refreshes the session so the next send fills the cache. A `Stop` after a turn shorter than `SLACK_NOTIFIER_MIN_SECONDS` (default 120) is skipped on the assumption that you were watching; permission prompts and questions always send. `SLACK_NOTIFIER_DRY_RUN=1` prints the message instead of sending it.
+```
+*✅ Finished* · `repo/worktree (branch)` <@USER_ID>
+_Landing page update with aurora background_
+• Rebuilt the hero section with an aurora background
+• Pending: the mobile breakpoint still overflows
+`claude · 1a2b3c4d · 23 min · 12 commands · 3 files edited · 4 subagents`
+```
+
+A finished turn carries 2 to 4 bullets and a footer of counts. The hook reads the transcript in one pass for the tool calls made since your last prompt, hands those plus the final message to a headless `claude -p` run, and keeps the bullets it writes. Zero counts drop out of the footer. A permission prompt or a question skips the summarizer, so it arrives with the pending text at once.
+
+The hook posts with `curl` and a bot token it fetches once from the Slack CLI's session and caches at mode 600. Only when the cache is empty and the CLI session has expired does it fall back to `slack api`, which refreshes the session so the next send fills the cache. A `Stop` is skipped when fewer than `SLACK_NOTIFIER_MIN_SECONDS` (default 120) have passed since your last prompt, and held while a background subagent or workflow runs unless the final message asks you something. `SLACK_NOTIFIER_DRY_RUN=1` prints the message instead of sending it, and `SLACK_NOTIFIER_SUMMARY=off` makes that preview offline.
 
 ## Install
 

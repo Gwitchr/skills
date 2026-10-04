@@ -33,3 +33,6 @@ worktrees/tests/
 
 # agent-workflow-notifier skill: eval prompts stay local, not published
 agent-workflow-notifier/evals/
+
+# agent-workflow-notifier skill: the ask fixture is built from private transcripts, never published
+agent-workflow-notifier/tests/asks-fixture.jsonl

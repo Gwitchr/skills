@@ -5,11 +5,11 @@ description: Install, wire, or repair a Slack direct-message notifier for Claude
 
 # agent-workflow-notifier
 
-This skill installs a hook that sends the owner a Slack direct message (DM) when a Claude Code agent needs a permission decision, asks a question, or stops after a turn long enough that the owner has likely walked away. Everything lives under `~/.claude` (one script, one config file, one Slack CLI project, one token cache) plus a hook block per repo. The skill is generic: no user id, app id, or team id is baked into any asset.
+This skill installs a hook that sends the owner a Slack direct message (DM) when a Claude Code agent stops, needs a permission decision, or asks a question, and only when the turn ran long enough that the owner has likely walked away. A finished turn arrives as a session title, 2 to 4 bullets about what the agent did, and a one-line footer of counts. Everything lives under `~/.claude` (one script, one config file, one Slack CLI project, one token cache) plus a hook block per repo. The skill is generic: no user id, app id, or team id is baked into any asset.
 
 TRIGGER when: the user wants Slack messages from Claude Code, asks to install or repair the notifier, wants a hook that reports when an agent finishes or waits for input, or names this skill.
 
-> **Stack assumed.** The `slack` CLI 4.x (Slack's developer command-line tool), logged in with `slack auth login`; `jq` 1.6 or newer; `curl`; git; bash 3.2 or newer (macOS ships 3.2, Linux usually ships 5, the hook runs the same on either). Claude Code with hook support for `Stop`, `Notification`, and `PreToolUse`.
+> **Stack assumed.** The `slack` CLI 4.x (Slack's developer command-line tool), logged in with `slack auth login`; `jq` 1.6 or newer; `curl`; git; bash 3.2 or newer (macOS ships 3.2, Linux usually ships 5, the hook runs the same on either). Claude Code with hook support for `Stop`, `Notification`, and `PreToolUse`. The hold on background tasks needs a Claude Code that sends `background_tasks` in the `Stop` payload, as 2.1.285 does. Two optional pieces: the `claude` CLI on `PATH` writes the summary bullets, and `perl` puts a time limit around that run. Without `claude` the body is the first sentence of the final message; without `perl` the summarizer runs untimed.
 
 > **Notation.** `<APP_ID>`, `<TEAM_ID>`, and `<USER_ID>` are the ids the install steps produce. `<root>` is the root of a bare clone (a git clone with no working tree of its own) when the repo uses the `worktrees` skill; `<repo>` is any ordinary checkout.
 
@@ -21,12 +21,13 @@ TRIGGER when: the user wants Slack messages from Claude Code, asks to install or
 |---|---|---|
 | Hook script | `~/.claude/hooks/slack-done.sh` | 755 |
 | Hook log | `~/.claude/hooks/slack-done.log` | written by the hook |
+| Hook state | `~/.claude/hooks/slack-done.state/` | files 600, written by the hook |
 | Config | `~/.claude/agent-workflow-notifier.env` | 600 |
 | Token cache | `~/.claude/agent-workflow-notifier.token` | 600, written by the hook |
 | Slack CLI project | `~/.claude/agent-workflow-notifier/` | holds the app manifest |
 | Hook block | `<repo>/.claude/settings.local.json` or `~/.claude/settings.json` | merged, never replaced |
 
-The hook reads the hook payload (the JSON Claude Code pipes to it) on stdin, builds one Slack message, posts it, and always exits 0 so a Slack outage never blocks the agent. It logs one line per run to the hook log and never logs a token.
+The hook reads the hook payload (the JSON Claude Code pipes to it) on stdin, builds one Slack message, posts it, and always exits 0 so a Slack outage never blocks the agent. It logs one line per run to the hook log, `sent <event> -> <channel> (<where>) title="…"`, with `ask=<rule> bg=<count>` on `Stop`, `msg="<first 80 chars>"` on `Notification`, and `session=<8 chars>` on every event, plus one line naming the summary path it took. A dry run logs the same line with `dry-run` in place of `sent`. The log holds no token and no assistant text; a `Notification` line holds the first 80 characters of the notification message. The headless `claude` run that writes the bullets carries `SLACK_NOTIFIER_INNER=1`, and the hook exits on that variable, so the run cannot trigger the hook again.
 
 ## Installing
 
@@ -54,31 +55,67 @@ The hook reads `~/.claude/agent-workflow-notifier.env` first, then `<cwd>/.env`,
 | `SLACK_NOTIFIER_TOKEN` | no | Bot token; skips the cache and the CLI entirely |
 | `SLACK_NOTIFIER_TOKEN_FILE` | no | Token cache path, default `~/.claude/agent-workflow-notifier.token` |
 | `SLACK_NOTIFIER_EVENTS` | no | Comma-separated hook events to send; others are dropped |
-| `SLACK_NOTIFIER_MIN_SECONDS` | no | Minimum turn length before a `Stop` or `SubagentStop` send, default `120`; `0` sends every time |
+| `SLACK_NOTIFIER_MIN_SECONDS` | no | Seconds that must pass before a send, since the last human prompt for `Stop` and since the last user entry for `SubagentStop`; default `120`; `0` turns both clocks off |
+| `SLACK_NOTIFIER_HOLD_TYPES` | no | Comma-separated background task types that hold a `Stop`, default `subagent,workflow` |
+| `SLACK_NOTIFIER_STATE_DIR` | no | Per-session state dir, default `~/.claude/hooks/slack-done.state` |
 | `SLACK_NOTIFIER_CLI` | no | Path to the `slack` binary when it is not on `PATH` |
+| `SLACK_NOTIFIER_SUMMARY` | no | `claude` writes the summary bullets, `off` falls back to the final message; default `claude` |
+| `SLACK_NOTIFIER_SUMMARY_MODEL` | no | Model that writes the bullets, default `haiku` |
+| `SLACK_NOTIFIER_SUMMARY_TIMEOUT` | no | Seconds the summarizer may take, default `45` |
+| `SLACK_NOTIFIER_CLAUDE` | no | Path to the `claude` binary when it is not on `PATH` |
 
-Without `SLACK_NOTIFIER_CLI` the hook looks on `PATH`, then `~/.local/bin/slack`, then `~/.slack/bin/slack`. `SLACK_NOTIFIER_DRY_RUN=1` in the environment prints the message to stdout and exits before any network call, including the token fetch.
+Without `SLACK_NOTIFIER_CLI` the hook looks on `PATH`, then `~/.local/bin/slack`, then `~/.slack/bin/slack`. Without `SLACK_NOTIFIER_CLAUDE` it looks on `PATH`, then `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`, `~/.local/bin/claude`, `~/.claude/local/claude`. A key that appears in either config file wins over the same variable set in the hook's environment, so an override on the command line works only for keys the files leave out.
 
-The duration gate applies to `Stop` and `SubagentStop` only. The hook reads the timestamp of the last user entry in `transcript_path`, and when fewer than `SLACK_NOTIFIER_MIN_SECONDS` have passed it logs `skipped <event>: turn took Ns` and exits, on the assumption that the user is still at the screen after a short turn. Any user entry resets that clock, including an answer to a question dialog and a harness nudge to the agent, not only a typed prompt. `Notification` and `PreToolUse` are sent at any age, because a blocked agent is the case the notifier exists for. A payload with no transcript is sent every time.
+`SLACK_NOTIFIER_DRY_RUN=1` in the environment prints the message to stdout and exits before any Slack call or token fetch. It still runs the summarizer, since that is what the preview is for; add `SLACK_NOTIFIER_SUMMARY=off` for a dry run that touches no network at all.
+
+The duration gate applies to `Stop` and `SubagentStop`. One pass over `transcript_path` gives two clocks: the last human prompt, a `user` entry that is not meta, has text, has `origin.kind` `human` or no `origin`, and does not start with `<task-notification>`; and the last user entry of any origin, which includes a completion notice. A `Stop` is skipped when fewer than `SLACK_NOTIFIER_MIN_SECONDS` have passed since the human prompt, a `SubagentStop` when fewer have passed since the last user entry of any origin; the hook logs `skipped <event>: turn took Ns` and exits. Permission prompts and questions go out at any age. A payload with no transcript, or `SLACK_NOTIFIER_MIN_SECONDS=0`, skips both clocks.
+
+A `Stop` is held, with the log line `held Stop: N background task(s) running (<types>)`, while the payload's `background_tasks` holds a `running` or `pending` task whose `type` is in `SLACK_NOTIFIER_HOLD_TYPES`, unless the final message asks for input by the title rule below. The hold applies with no transcript and with `SLACK_NOTIFIER_MIN_SECONDS=0`. Each task is `{"id","type","status","description"}`, plus `command` on a `shell` task and `agent_type` on a `subagent` task; the types are `subagent`, `workflow`, `shell`, `monitor`, `MCP task`, `teammate`, `dream`, `auto-mode scan`, and `cloud session`. A Claude Code that sends no `background_tasks` holds nothing.
+
+A `Stop` whose last user entry, a completion notice, is younger than `SLACK_NOTIFIER_MIN_SECONDS` is skipped when `<session_id>.announced` is at or after the human prompt; the hook logs `skipped Stop: already announced for this prompt` and exits. It writes `.announced` after a `Stop` goes out while no held-type task runs.
+
+`SLACK_NOTIFIER_STATE_DIR` holds one epoch per file at mode 600: `<session_id>.announced` and `<session_id>.question`. The hook prunes state files older than 7 days on each write, and every read and write fails soft. A session id that is empty or holds a character outside letters, digits, `_`, and `-` turns state off. A dry run writes state too.
 
 ## What the message says
 
-One message per event, in mrkdwn (Slack's markdown dialect):
+One message per event, in mrkdwn (Slack's markdown dialect). `Stop` and `SubagentStop` carry summary bullets:
 
 ```
 *✅ Finished* · `repo/worktree (branch)` <@USER_ID>
-*Agent:* claude · *Session:* 1a2b3c4d
-*Task:* first user prompt of the session, 200 chars
-*Now:* last assistant message or the pending question, 400 chars
+_Landing page update with aurora background_
+• Rebuilt the hero section with an aurora background
+• Pending: the mobile breakpoint still overflows
+`claude · 1a2b3c4d · 23 min · 12 commands · 3 files edited · 4 subagents`
 ```
 
-The repo name comes from `git rev-parse --git-common-dir` on the session's `cwd` (the bare clone directory for a worktree, the checkout for a plain repo), the branch from `git symbolic-ref`, the task from the first user prompt in `transcript_path`, and the agent from the payload's `agent_type`, else `$CLAUDE_AGENT_NAME`, else `claude`.
+A permission prompt or a question carries the pending text instead, and skips the summarizer so it arrives at once:
 
-Which title the hook picks:
+```
+*🔐 Needs your input: permission* · `repo/worktree (branch)` <@USER_ID>
+_Landing page update with aurora background_
+Claude needs your permission to run: rm -rf dist
+`claude · 1a2b3c4d`
+```
 
-- `Stop`: `✅ Finished`, unless the last paragraph of `last_assistant_message` contains a `?` or one of `let me know`, `should i`, `do you want`, `would you like`, `which one`, `which option`, `your call`, `confirm`, `choose`, `pick one`; then `❓ Needs your input`. This is a text heuristic on the final paragraph, so a closing offer with a question mark reads as a question.
-- `Notification` with `notification_type` `permission_prompt`: `🔐 Needs your input: permission`. `elicitation_dialog`: `❓ Needs your input`. `idle_prompt`: dropped.
-- `PreToolUse` on `AskUserQuestion`: `❓ Needs your input: question`, with each question and its option labels.
+The repo name comes from `git rev-parse --git-common-dir` on the session's `cwd` (the bare clone directory for a worktree, the checkout for a plain repo), the branch from `git symbolic-ref`, and the agent from the payload's `agent_type`, else `$CLAUDE_AGENT_NAME`, else `claude`.
+
+The italic line is the session title: the last `ai-title` entry of `transcript_path`, else the first user prompt of the session, 100 chars. A payload with no transcript drops the line.
+
+The footer is one code span: the agent, the first 8 characters of the session id, then on `Stop` and `SubagentStop` the minutes since the last user prompt and what the turn touched. Zero counts and an unknown elapsed time drop out, so a quiet turn shows the agent and the session alone.
+
+Counts, action lines, and the title come from one streaming `jq` pass over `transcript_path` that keeps the entries after the last real user prompt: a `user` entry that is not meta and whose text is non-empty and does not open with `<`. Commands are `Bash` calls, files edited are the distinct `file_path` values of `Edit`, `Write`, and `NotebookEdit`, and subagents are `Agent` and `Task` calls. The pass also collects up to 40 action lines: the `description` of each `Bash`, `Agent`, and `Task` call, `edited <basename>` for each `Edit` and `Write`, and `skill <name>` for each `Skill`.
+
+A final message of 240 characters or fewer becomes the body as one line. A longer one goes to the summarizer, which reads the title, the action lines, and the first 3000 characters of that message on stdin: `claude -p --model "$SLACK_NOTIFIER_SUMMARY_MODEL" --tools "" --no-session-persistence --strict-mcp-config --settings '{"disableAllHooks":true}'` with a system prompt asking for 2 to 4 bullets, run from `SLACK_NOTIFIER_PROJECT` so no repo settings load, under `SLACK_NOTIFIER_INNER=1` and a `perl` alarm of `SLACK_NOTIFIER_SUMMARY_TIMEOUT` seconds. The hook keeps at most 4 answer lines that open with `•`, 140 characters each.
+
+Bullets are past tense and say what was done. One opens with `Pending:` when something is unfinished, failed, or blocked, and the last opens with `Asks:` when the final message asks the user something.
+
+When the summarizer is off, missing, slow, or answers without a bullet, the body is the first sentence of the final message's first paragraph, 200 chars, plus an `Asks:` line when the message asks for input: the last question line under rule `qmark`, the last paragraph under rule `phrase`, taken from the stripped text, 200 chars. Either way the hook logs the path it took, `summary: claude 17s`, `summary: fallback (timeout)`, or `summary: short message`, and never the text.
+
+Which title the hook picks, once the duration gate has passed:
+
+- `Stop`: `❓ Needs your input` when the message asks for input, otherwise `✅ Finished`. The check reads `last_assistant_message` with fenced code, inline code spans, URLs (`http`, `https`, `mailto`), and markdown heading lines removed. The message asks when any line has a `?` followed by whitespace, the end of the line, or one of `*`, `_`, `)`, `]` (rule `qmark`), or when the last paragraph holds one of these as whole words: `let me know`, `should i`, `do you want`, `would you like`, `which one`, `which option`, `your call`, `pick one` (rule `phrase:<phrase>`). A `?` followed by a quote character does not count.
+- `Notification` with `notification_type` `permission_prompt`: `🔐 Needs your input: permission`, or dropped with `skipped Notification: duplicate of the question ping` when its message contains `AskUserQuestion` or `<session_id>.question` is at most 10 s old. `elicitation_dialog`: `❓ Needs your input`. `idle_prompt`: dropped.
+- `PreToolUse` on `AskUserQuestion`: `❓ Needs your input: question`, with each question and its option labels. The hook writes `<session_id>.question` before it posts.
 - `SubagentStop`: `🤖 Subagent finished`. Not wired by default; see Tuning.
 - `SessionEnd`: dropped.
 
@@ -150,20 +187,40 @@ Run these after any change to the hook, the config, or the wiring:
 
    ```sh
    printf '{"hook_event_name":"Stop","session_id":"deadbeef","cwd":"%s","last_assistant_message":"Done.\\n\\nAll tests pass."}' "$PWD" \
-     | SLACK_NOTIFIER_DRY_RUN=1 ~/.claude/hooks/slack-done.sh
+     | SLACK_NOTIFIER_DRY_RUN=1 SLACK_NOTIFIER_SUMMARY=off ~/.claude/hooks/slack-done.sh
    ```
 
-   The first line must start with `*✅ Finished*`. Change the message to end in a question and it must start with `*❓ Needs your input*`. The fake payload carries no `transcript_path`, so the duration gate does not apply.
-2. Real send. Drop `SLACK_NOTIFIER_DRY_RUN=1` and run the same command. The DM arrives within a few seconds, and `~/.claude/hooks/slack-done.log` gains `cached bot token` (first run only) and `sent Stop -> <USER_ID> (...)`.
+   The first line must start with `*✅ Finished*`. Change the message to end in a question and it must start with `*❓ Needs your input*`. `SLACK_NOTIFIER_SUMMARY=off` keeps the run offline, and the fake payload carries no `transcript_path`, so there is no title line, no counts, and no duration gate. The run logs a `dry-run Stop -> …` line and writes `deadbeef.announced` to the state dir.
+
+   Then check the hold. The same payload with one running `subagent` in `background_tasks` prints nothing and logs `held Stop: 1 background task(s) running (subagent)`:
+
+   ```sh
+   printf '{"hook_event_name":"Stop","session_id":"deadbeef","cwd":"%s","last_assistant_message":"Done.\\n\\nAll tests pass.","background_tasks":[{"id":"b1","type":"subagent","status":"running","description":"audit"}]}' "$PWD" \
+     | SLACK_NOTIFIER_DRY_RUN=1 SLACK_NOTIFIER_SUMMARY=off ~/.claude/hooks/slack-done.sh
+   ```
+
+   Then preview the bullets against a real transcript, which is where the title, the counts, and the summarizer input live. Pick any session file under `~/.claude/projects/` and write a final message of a few paragraphs:
+
+   ```sh
+   TR=~/.claude/projects/<project>/<session>.jsonl
+   jq -cn --arg tr "$TR" --arg cwd "$PWD" --arg m "$(cat /tmp/final-message.txt)" \
+     '{hook_event_name:"Stop",session_id:"deadbeef",cwd:$cwd,transcript_path:$tr,last_assistant_message:$m}' \
+     | SLACK_NOTIFIER_DRY_RUN=1 SLACK_NOTIFIER_MIN_SECONDS=0 ~/.claude/hooks/slack-done.sh
+   ```
+
+   It takes as long as the summarizer needs, up to `SLACK_NOTIFIER_SUMMARY_TIMEOUT`, and prints an italic title, 2 to 4 bullets, and a footer with counts. `SLACK_NOTIFIER_MIN_SECONDS=0` only takes effect when that key is absent from the config files.
+2. Real send. Drop `SLACK_NOTIFIER_DRY_RUN=1` from the first command and run it. The DM arrives within a few seconds, and `~/.claude/hooks/slack-done.log` gains `cached bot token` (first run only) and `sent Stop -> <USER_ID> (<where>) title="✅ Finished" ask=none bg=0 session=deadbeef`.
 3. Cache check. `ls -l ~/.claude/agent-workflow-notifier.token` shows mode `-rw-------`. A second send logs only the `sent` line.
-4. Wiring check. Start a new Claude Code session in the wired repo and give it a task that runs longer than `SLACK_NOTIFIER_MIN_SECONDS`, or set `SLACK_NOTIFIER_MIN_SECONDS=0` in the config for the test. Confirm the `✅ Finished` DM, then restore the config.
+4. Wiring check. Start a new Claude Code session in the wired repo and give it a task that runs longer than `SLACK_NOTIFIER_MIN_SECONDS`, or set `SLACK_NOTIFIER_MIN_SECONDS=0` in the config for the test. Check that the `✅ Finished` DM arrives, then restore the config.
 
 A `FAILED` line in the log carries Slack's error string. `messages_tab_disabled` means the manifest lost its `app_home` block; `not_in_channel` means `SLACK_NOTIFIER_CHANNEL` names a channel the bot was not invited to; `not_authed` means the CLI ran outside the project dir.
 
 ## Tuning
 
 - **Fewer messages.** Set `SLACK_NOTIFIER_EVENTS=Notification,PreToolUse` to hear only when the agent is blocked, or drop the `Stop` entry from the hook block.
-- **Shorter or longer turns.** Raise `SLACK_NOTIFIER_MIN_SECONDS` to hear only about long runs, or set it to `0` to hear about every turn. The key changes `Stop` and `SubagentStop` only; permission prompts and questions always send.
+- **Shorter or longer turns.** Raise `SLACK_NOTIFIER_MIN_SECONDS` to hear only about long runs, or set it to `0` to turn both clocks off.
+- **Background tasks.** `SLACK_NOTIFIER_HOLD_TYPES` names the task types that hold a `Stop`. Add `shell` to also hold on background commands, which includes a dev server.
+- **Plainer or cheaper summaries.** Set `SLACK_NOTIFIER_SUMMARY=off` to drop the bullets for the first sentence of the final message, or point `SLACK_NOTIFIER_SUMMARY_MODEL` at another model. Raise `SLACK_NOTIFIER_SUMMARY_TIMEOUT` when the model runs past 45 seconds.
 - **Subagents.** Add a `SubagentStop` entry to the hook block with the same command; the hook already formats it.
 - **A channel instead of a DM.** Set `SLACK_NOTIFIER_CHANNEL` to a channel id and invite the bot to that channel.
 - **Per-repo overrides.** Put any `SLACK_NOTIFIER_*` key in the repo's `.env`; the hook reads it after the global file.
