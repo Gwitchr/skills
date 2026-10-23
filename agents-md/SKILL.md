@@ -1,117 +1,111 @@
 ---
 name: agents-md
-description: Scaffold an `AGENTS.md` entry-point file at the root of a repo following the conventions in this skills repo (documentation map, agent rules, runtime baseline, layout, API surface, data models, commands, coding rules, safety buckets, quality gates, and risk areas). Use when the user says "write AGENTS.md", "create AGENTS.md", "scaffold agents instructions", "add an agents file", "bootstrap AI-agent docs", or when working in a new repo that lacks one.
+description: Write, prune, or audit a repo's AGENTS.md so every line is something a coding agent would get wrong without it, such as the commands to run and where, scope and verification rules, boundaries (allowed, ask first, never), testing and git conventions, and the subsystems that need a plan first. Leaves out stack tables, directory trees, and anything the code or README already shows, wires CLAUDE.md through an @AGENTS.md import, and moves package-only rules into nested AGENTS.md files. Use when the user says "write AGENTS.md", "create, update, or clean up AGENTS.md", "add an agents file", "set up CLAUDE.md", or "rules for the agent", when a repo has no AGENTS.md, or when agents keep repeating the same mistake in a repo.
 ---
 
-# AGENTS.md scaffolder
+# agents-md
 
-`AGENTS.md` lives at the repo root and is the entry point an AI agent reads before doing anything in the repo. It is not a README: it is terse and opinionated, and it points at deeper docs. Keep it under ~300 lines.
+This skill writes or prunes the `AGENTS.md` at a repo's root, and any nested ones, so that every line is something a coding agent would get wrong without it. It also wires `CLAUDE.md` and other tool-specific files to the same source. It is for anyone setting up or cleaning up agent instructions in a repo.
 
-> **Stack assumed.** This skill is framework-agnostic and works for any React + TypeScript codebase, but most of the canonical sections (atomic hierarchy, `classNames()`, server functions, Prisma + Mongo) assume the conventions in the rest of this skills repo (`components-hierarchy`, `zod-prisma-tanstack`, `auth-stack`). Drop or adapt sections when the host project's stack differs.
+TRIGGER when: a repo has no `AGENTS.md`; the user asks to write, update, align, or shorten one; the user asks to set up `CLAUDE.md`, `GEMINI.md`, or Copilot instructions; or agents keep making the same mistake in a repo and the fix is a standing rule.
 
-> **Notation.** `<Project>`, `docs/`, `prisma/`, `src/`, `<server>`, `<components>` are placeholders. Resolve to the host project's actual root and paths. Helper names (`classNames()`, `requireAuthenticatedUser`, etc.) are convention examples; rename them to match the host project's style, and include them in the generated `AGENTS.md` only if those helpers exist in the host project.
+> **Stack assumed.** Any repository, and any agent that reads `AGENTS.md`: Codex, Copilot, and Cursor natively, Gemini CLI with one setting, Claude Code through an import. The template's code rules use the React + TypeScript conventions of this repo's sibling skills; drop them when the host stack differs. Tool behavior below is as documented on 2026-10-22.
 
-> **Precedence.** Project rules (existing `CLAUDE.md` / contributing guide / lint config / `tsconfig`) win over this skill. If `AGENTS.md` already exists, read it first and merge; do not overwrite blindly.
+> **Notation.** `<Project>`, `<pm>`, `<check>`, `<generate>`, and the other angle-bracket names in the template are placeholders. Resolve each one from the host repo, and delete the line when the repo has no such thing; never invent a value.
 
----
+> **Precedence.** An existing `AGENTS.md`, `CLAUDE.md`, or contributing guide wins. Read it first, merge into it, and never overwrite it wholesale. A user's instruction in chat overrides the file.
 
-## When to invoke
+## What earns a line
 
-- New repo with no `AGENTS.md`.
-- Existing `AGENTS.md` that is missing sections from the canonical structure.
-- User asks to "regenerate" or "align" their agents file.
+Keep a line only if an agent that has read the code, the manifests, CI, and the README would get something wrong without it. Apply this test to every line, including lines the user already has.
 
-If `AGENTS.md` already exists, prefer `Edit` over `Write` unless rewriting from scratch.
+Earns a line:
 
----
+- The commands, with their flags and the directory they run from, and the one command that counts as "checks pass" (usually what CI runs).
+- Commands that look right but are wrong here: bare `tsc` instead of the repo's typecheck script, a full production build, tests run from the wrong directory, tests that read a stale build.
+- Scope, verification, and reporting rules for the agent.
+- Conventions that differ from what an agent writes by default, and bans on what it reaches for (type assertions, lint-disable comments).
+- Generated files and the command that regenerates each one.
+- Dependency direction between packages or layers, when breaking it compiles but is wrong.
+- Boundaries: what the agent may do without asking, what needs approval, and what it must never do.
+- Subsystems that need a plan before any edit.
+
+Does not earn a line:
+
+- Stack tables, directory trees, API lists, and data-model lists. The agent reads `package.json`, the tree, and the schema itself, and copies go stale.
+- A repository overview longer than one sentence.
+- Rules a linter or formatter already enforces. Name the command instead.
+- Language conventions any agent already follows, and framework tutorials.
+- Anything the README already says.
+- An instruction to read every doc before each task. Each session pays for it.
+
+## Why this shape
+
+- **Generated files cost more than they help.** An ETH Zurich study (Gloaguen et al., arXiv 2602.11988, v3 of 2026-09-29) ran four agent and model pairs on SWE-bench Lite and on 138 tasks from 12 repos that ship developer-written files. LLM-generated context files lowered resolution rates by 0.5 and 2 percent and raised cost by 20 and 23 percent. Developer-written files raised success by 2.4 percent on average, a result the authors report as not significant (p = 21 percent), and beat generated ones by 7 percent. Repository overviews did not help. The authors recommend files that hold only "specific additional instructions beyond what is already available in the codebase". This skill therefore drafts, cuts, and asks the owner to confirm every rule it inferred, instead of publishing what it generates.
+- **Length.** Claude Code's memory docs target under 200 lines per file and ask, for each line, "Would removing this cause Claude to make mistakes?". Codex stops loading instruction files once their combined size reaches 32 KiB (`project_doc_max_bytes`).
+- **Discovery.** Claude Code (v2.1.277 and later) reads `AGENTS.md` on its own only when no `CLAUDE.md` exists in the working directory or above it. Claude Code, Codex, and Gemini CLI all concatenate the files from the root down to the working directory and read the closest one last; the agents.md site describes the closest file as winning. Either way, a nested file should add to the root file, not contradict it.
+- **Rules.** The template's working rules come from the root files of 28 open-source repos read on 2026-10-22, among them opencode, uv, ruff, biome, zed, deno, airflow, langchain, openai-agents-python, next.js, tldraw, astro, cloudflare workers-sdk, TanStack Router, bun, and prisma. Most rules appear in several of them. The rule on speculative edge cases is opencode's, word for word.
 
 ## Process
 
-1. **Inventory the repo.** Before writing anything:
-   - `package.json` (or `pyproject.toml`, `Cargo.toml`, etc.) → stack, scripts, package manager.
-   - `prisma/schema.prisma` / Drizzle config / migration dirs → data layer.
-   - `src/routes/`, `app/`, `pages/` → routing model + API surface.
-   - `src/components/` subdirs → atomic hierarchy presence (atoms / molecules / organisms).
-   - `.cursorrules`, `CLAUDE.md`, existing `docs/` → carry forward house rules.
-   - `.env.example` → env shape (**never** read `.env` / `.env.*`, they're live secrets).
-   - `tsconfig.json` → path aliases (`@/*`, `~/*`, `#/*`, etc.).
-   - Hosting/CI: `vercel.json`, `netlify.toml`, `fly.toml`, `railway.json`, `nixpacks.toml`, `.github/workflows/`.
+1. **Read what exists.** Root and nested `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.cursor/rules/`, `.github/copilot-instructions.md`, `CONTRIBUTING.md`, the README, and the PR template. Never read `.env` or `.env.*`; use `.env.example`.
+2. **Find the commands.** Read the package manager's scripts, `Makefile` or `justfile`, and the CI workflows; the command CI runs is the canonical check. Run the check and one targeted test when that is cheap, to confirm they work and from which directory. Label any command you could not run `[Unverified]` in your report to the owner, not in the file.
+3. **Find the traps.** Lint and formatter configs (whatever they enforce stays out of the file), generated files (`*.gen.*`, `generated/`, codegen scripts, lockfiles), workspace packages (each package with its own rules gets a nested file), the default branch and commit style from `git log`, and the release-note mechanism (changesets, newsfragments).
+4. **Ask the owner** for what the code cannot show: mistakes agents keep making here, subsystems that need a plan first, the commit and push policy, and the AI-attribution policy.
+5. **Draft from the template**, then cut every line that fails the test above. Check the size with `wc -l AGENTS.md` (under 200) and `wc -c` across all `AGENTS.md` files (under 32 KiB).
+6. **Confirm inferred rules.** List for the owner each rule you inferred rather than verified or were told, and keep only the ones they confirm.
+7. **Wire the other tools** (next section).
 
-2. **Verify, do not guess.** Every entry in Runtime Baseline / Commands / Layout must be grep-confirmed in the repo. If a section does not apply (no AI provider, no Stripe, no Redis), drop it; do not invent rows.
+## Canonical structure
 
-3. **Write `AGENTS.md` at the repo root** using the canonical structure below.
+Use these H2 headings in this order. Delete a section that has nothing in it; do not reorder.
 
-4. **Update read order** in the Documentation Map to reflect what actually exists under `docs/`. Do not list `docs/` files that aren't there.
+1. `# <Project>` and one sentence on what the repo is.
+2. `## Commands`: the fenced command block, then the commands not to run and what to run instead, then the cleanup rule.
+3. `## Working rules`: scope, verification, reporting, and plans.
+4. `## Boundaries`: three H3s, `Allowed without asking`, `Ask first`, and `Never`.
+5. `## Code`: a **Do:** line and a **Don't:** line, a pointer to the skill per file type, and `### Comments and docs`.
+6. `## Testing`.
+7. `## Git`: default branch, branch names, commit and PR title format, attribution, release notes.
+8. `## Plan first`: the subsystems that need an approved plan.
+9. `## Architecture`, optional: dependency direction, and the core domain abstraction only when it is non-obvious (a lifecycle, a state machine, an inheritance rule).
+10. `## Docs`, optional: one line per file in `docs/`, read when a task touches that domain.
+11. `## This file`: the size cap and how rules get added.
 
----
+A fillable skeleton is at [`template/AGENTS.template.md`](template/AGENTS.template.md).
 
-## Canonical structure (in order)
+## Monorepos and nested files
 
-Use exactly these top-level H2 headings, in this order. Omit a section only if it does not apply to the repo; never reorder.
+Keep repo-wide rules in the root file. Put rules that apply to one package in that package's own `AGENTS.md`, and never repeat a root rule there. Agents load every file from the root down to where they work, so the combined size counts against Codex's 32 KiB cap.
 
-1. **Title + one-line pitch.** `# <Project>`, then one or two sentences on what it is and who it is for.
-   - Optional: a "Two audiences: **X** and **Y**" line if there are distinct user classes.
-2. **Documentation Map.** A table of `Domain | File | What it covers`, followed by a `> Read order:` blockquote.
-3. **Agent Rules.** Two H3s:
-   - `### Communication`: concision, no guessing, the `[Unverified]` / `[Speculation]` / `[Probability: x%]` labels, and "trust official docs first".
-   - `### Plan Mode`: short ordered bullets, ending every plan with `Ask: ...` or `Ask: none`.
-4. **Runtime Baseline.** A table of `Layer | Stack`, one row per concern (Framework, UI, Language, Database, Auth, State, AI, Payments, Storage, Email, Cache, Hosting, Testing, Package manager, Observability). Drop rows that don't apply.
-5. **Domain abstraction** *(optional, project-specific)*. Include it only when the project has a non-obvious core abstraction worth one screen of explanation (a workflow state machine, a content model with inheritance, an order/booking lifecycle). Otherwise omit it.
-6. **Project Layout.** A fenced tree of `src/` (plus `prisma/`, `docs/`, etc. when relevant), with one-line `#` comments on non-obvious files. Do not dump every file; show the spine.
-7. **API Surface.** A list of standalone API routes (auth catch-all, webhooks, polling), then a sentence on the dominant pattern (server functions, server actions, REST handlers). Name the most important server-function entry points.
-8. **Key Data Models.** Point at the schema file, then give a one-line categorized list (e.g. `**Identity:** User, Account, Session`). Do not duplicate the schema.
-9. **Commands.** A fenced bash block of every script in `package.json`, each with a 2-6-word comment. If a common command is missing (e.g. no `typecheck` script), call it out.
-10. **Coding Rules.** Two paragraphs led by **Do:** and **Don't:**. Carry forward the conventions from the rest of this skills repo (path aliases, `classNames()` 3-class threshold, atomic hierarchy, type-guard predicates instead of `as`, type guards that check concrete properties rather than generic is-object predicates (`isRecord`, `isObject`), no `&&` in JSX, no `eslint-disable-next-line`, no comments inferable from code, no TS `enum` in app code, `const` object + literal-union types instead). Then a `### Documentation Hierarchy` subsection: explain code at the highest level that fits, `docs/` first, then module or file-level JSDoc, then function JSDoc, with inline comments the last resort for local surprises (a workaround with a reason, a deliberate deviation, an ordering constraint). Never restate what the code says; move an inline *why* comment up to the function or `docs/` when it fits there. Add project-specific subsections (AI, Sentry, i18n, payments) only for non-obvious patterns.
-11. **Safety.** Three H3 buckets:
-    - `### Allowed without prompt`: local read/search, single-file lint/format, targeted tests, `prisma generate`, git commit with hooks.
-    - `### Ask first`: install/remove deps, delete files, full builds, `prisma db push` / `migrate` against non-local DBs, external service ops, force-push.
-    - `### Never`: `git push` without explicit request; destructive git (`reset --hard`, `clean -fd`, `branch -D`, force-push to `main`); list files outside project; read `.env` / `.env.*` except `.env.example`; bypass hooks (`--no-verify`) or signing without explicit ask; hand-edit generated files.
-12. **Quality Gates.** A one-line pipeline (`lint → typecheck → test → build`) and the PR title regex `^(feat|fix|refactor|docs|test|chore)(\(|:).*`
-13. **Risk Areas (Plan First).** A comma-separated list of subsystems that demand a plan before edits (auth/session flows, payment/webhook handlers, schema changes, state machines, role/permission checks, env-variable usage, generated-file boundaries).
+## Wiring other tools
 
----
+- **Claude Code.** Create `CLAUDE.md` with `@AGENTS.md` as its only line (tldraw, n8n, supabase, mastra, and ruff do exactly this), and put any Claude-only instructions below the import. A symlink `CLAUDE.md -> AGENTS.md` also works (prisma, airflow). Never maintain two copies; they drift.
+- **Gemini CLI.** Add `"AGENTS.md"` to `context.fileName` in `.gemini/settings.json`, or symlink `GEMINI.md -> AGENTS.md`.
+- **Codex, Copilot, Cursor** read `AGENTS.md` without setup. Codex also honors an `AGENTS.override.md` next to it; do not create one unless asked.
+- **Skills.** Keep one skills directory (`.agents/skills/`, where this repo's skills install) and point each tool at it with a symlink, instead of copying skills per tool.
 
-## Style rules
+## Aligning with sibling skills
 
-- **Tables over prose.** Use a table wherever a comparison is possible.
-- **No marketing tone.** This file is for agents, not users.
-- **No hypotheticals.** Don't document features that "might" exist.
-- **Carry forward, don't copy.** When scaffolding from one repo to another, adapt every claim to the actual stack; different stacks have different rules (Mongo's `relationMode = "prisma"` does not apply to Postgres; TanStack Start server functions do not exist in Next.js).
-- **Name generated files.** Always list them under Coding Rules / Safety / Risk Areas (e.g. `routeTree.gen.ts`, `src/generated/prisma/**`, lockfiles).
-- **Emojis minimal.** Title may include a single decorative emoji; body should avoid them. AGENTS.md is read by tools more often than humans.
-- **Cap at ~300 lines.** If a section needs more, push detail into `docs/<DOMAIN>.md` and link it from the Documentation Map.
+When the host project uses another skill from this repo, `AGENTS.md` names the skill instead of restating its rules:
 
----
+- `components-hierarchy` and `pedantic-react` for `*.tsx` files.
+- `zod-prisma-tanstack` for the data layer, and `smart-tanstack-query` for mutations and cache updates.
+- `auth-stack`, `image-storage`, `content-stack`, and `content-authoring` for their subsystems.
+- `deslop` for maintainer-facing prose.
+- `worktrees`: paste its `assets/AGENTS-snippet.md` as a section.
 
-## Cross-skill alignment
-
-When the host project also uses other skills in this repo, the generated `AGENTS.md` should align, not duplicate, their rules:
-
-| Generated `AGENTS.md` says | Detail lives in |
-|----------------------------|-----------------|
-| "Atomic hierarchy, `classNames()` 3-class threshold, no TS `enum`, React 19 ref-as-prop, no manual memoization under the React Compiler" | `components-hierarchy` |
-| "Data flows Component → Hook → Query Options → Fetcher → Route → Server Action → Prisma. Standalone `*Options` functions + `xKeys` hierarchy. Zod-validated input on every server entry point." | `zod-prisma-tanstack` |
-| "Better Auth + `requireAuthenticatedUser` for mutating server fns; magic-link tokens hashed at rest; IAM-fallback contract for AWS clients." | `auth-stack` |
-| "Mongo `relationMode = 'prisma'`, every FK gets explicit `@@index`, `@db.ObjectId` decorator everywhere." | `auth-stack/prisma-mongo.md` |
-| "Server-proxied uploads only, content-addressed keys, create-row-first ordering." | `image-storage` |
-| "Tiptap v3 + markdown for long-form content; seed-as-source-of-truth for i18n." | `content-authoring` / `content-stack` |
-| "Eight flat top-level domain docs in `docs/`, `DESIGN.md` follows the google-labs-code/design.md spec." | `docs-vault` |
-
-If the host project does not use one of these skills, drop the relevant rule from `AGENTS.md`; don't paste it speculatively.
-
----
-
-## Reference template
-
-A fillable skeleton is at [`template/AGENTS.template.md`](template/AGENTS.template.md) in this skill. Copy it, strike sections that don't apply, and fill the rest from your repo inventory.
-
----
+Drop a pointer when the project does not use that skill.
 
 ## Anti-patterns
 
-- ❌ **Writing a tutorial.** The file should not explain how TanStack Router or Prisma works; it should say "TanStack Start (file routes)" and move on. Agents have docs; this file is the project-specific overlay.
-- ❌ **Pasting `CLAUDE.md` content verbatim.** `CLAUDE.md` is for Claude Code's harness (auto-loaded on session start); `AGENTS.md` is the project-level entry point any agent can read. Cross-reference, don't duplicate.
-- ❌ **Listing every file.** Show the spine of `src/` only. If a reader needs the full tree, they can `ls`.
-- ❌ **Inventing safety rules.** The "Never" list is the one that prevents damage: keep it tight and accurate, and never soften it.
-- ❌ **Copying recommendations that conflict with the host project's other tooling.** If the project uses Bun, don't write `pnpm`. If it uses Drizzle, don't say "Prisma client singleton."
-- ❌ **Frontmatter on `AGENTS.md`.** The generated file is read by agents and humans alike; frontmatter only confuses GitHub's renderer. (This skill's own SKILL.md needs frontmatter; the produced `AGENTS.md` does not.)
+- ❌ Publishing a generated file without the owner confirming the rules you inferred.
+- ❌ Maps instead of traps: stack tables, directory trees, API and model lists, a paragraph-long overview.
+- ❌ Restating lint or formatter rules instead of naming the command.
+- ❌ A `CLAUDE.md` that duplicates `AGENTS.md` instead of importing it.
+- ❌ Package-only rules in the root file, or root rules repeated in a nested file.
+- ❌ `IMPORTANT` or `MUST` on many lines. Claude Code's docs advise emphasis on the one line agents keep skipping, since emphasis on every line makes none stand out.
+- ❌ A "read these docs first" list that every session pays for.
+- ❌ Commands copied from another repo (`pnpm` in a Bun repo, a `prisma` script in a Drizzle repo).
+- ❌ Softening the **Never** list, or inventing entries for it.
+- ❌ Frontmatter on the generated `AGENTS.md`. This skill's own `SKILL.md` needs frontmatter; the file it produces does not.
