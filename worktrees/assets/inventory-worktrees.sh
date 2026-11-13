@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# inventory-worktrees-version: 2
+# inventory-worktrees-version: 3
 #
 # Take inventory of the linked worktrees of this repo: what each one holds, why
 # it exists, and which ones have landed and can go. Removal is the second step
@@ -56,7 +56,8 @@ A worktree is finished when either of these holds:
   2. gh reports a merged pull request for its branch whose head commit is the
      worktree's own HEAD, which is what a squash merge leaves behind.
 
-A worktree is kept when it holds the default branch, is locked, has changes
+A worktree is kept when it holds the default branch, is the worktree named
+after the default branch (whatever branch it holds), is locked, has changes
 outside .worktree-copy, is in detached HEAD, has an open pull request, or has
 commits made after its pull request merged.
 
@@ -498,6 +499,9 @@ row() {
 
 DEFAULT_BRANCH="$(detect_default_branch)" ||
   die "could not detect the default branch. Set one with: git config wt.defaultBranch <branch>"
+# The worktree named after the default branch is never removed, whatever branch
+# it holds at the moment: setup creates it and other tools read from it.
+DEFAULT_WT="$(canonicalize "$REPO_ROOT/$DEFAULT_BRANCH")"
 
 REMOTE_REF="refs/remotes/${REMOTE}/${DEFAULT_BRANCH}"
 
@@ -649,6 +653,8 @@ evaluate_record() {
     reason="detached head"
   elif [ "$branch" = "$DEFAULT_BRANCH" ]; then
     reason="default branch"
+  elif [ "$path" = "$DEFAULT_WT" ]; then
+    reason="default-branch worktree, holds $branch"
   elif [ "$locked" -eq 1 ]; then
     if [ -n "$lock_reason" ]; then
       reason="locked: $lock_reason"
@@ -678,7 +684,7 @@ evaluate_record() {
   fi
 
   local shown="$name"
-  if [ "$branch" = "$DEFAULT_BRANCH" ]; then
+  if [ "$branch" = "$DEFAULT_BRANCH" ] || [ "$path" = "$DEFAULT_WT" ]; then
     shown="*$name"
   fi
   local branch_shown="$branch"
@@ -766,6 +772,13 @@ while IFS="$US" read -r name path branch <&3 || [ -n "$name" ]; do
 
   # The re-check closes the window between the report and the removal. Only a
   # tree confirmed warm here is ever removed with --force.
+  current="$(git -C "$path" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [ "$path" = "$DEFAULT_WT" ] || [ "$current" != "$branch" ] || [ "$current" = "$DEFAULT_BRANCH" ]; then
+    echo "inventory-worktrees: $name changed since the report, skipped" >&2
+    SKIPPED=$((SKIPPED + 1))
+    EXIT_CODE=3
+    continue
+  fi
   classify_dirt "$path" "$TMPD/recheck"
   case "$DIRT_KIND" in
     clean) FORCE="" ;;
