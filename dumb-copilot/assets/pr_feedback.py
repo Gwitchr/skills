@@ -12,10 +12,12 @@ Subcommands:
   done    mark an item implemented
   skip    decline an APPLY item, with a required reason
   status  print the scoring matrix and summary counts
+  resolve resolve the PR's review threads whose comments all have a decision
 
 Stdlib only, Python 3.9+. Reads GitHub through `gh` when available and
 falls back to the REST API over HTTPS (GH_TOKEN / GITHUB_TOKEN are used
-when set). The script never posts to GitHub and never runs git commands
+when set). The only write to GitHub is `resolve`, which marks review
+threads resolved and posts no text. The script never runs git commands
 other than read-only lookups.
 """
 
@@ -40,8 +42,8 @@ ASPECTS = [
                        "0: praise, a question, or an opinion with nothing to change."),
     ("correct", 30, "2: the comment's claim was verified against the code. "
                     "1: plausible but unverified, or only partly right. 0: factually wrong."),
-    ("scope", 20, "2: targets lines or behavior this PR changed. "
-                  "1: adjacent code the PR touches indirectly. 0: unrelated to the PR."),
+    ("scope", 20, "2: the PR needs it: it fixes or completes lines or behavior this PR changed. "
+                  "1: adjacent code, or an improvement the PR works without. 0: unrelated to the PR."),
     ("effort", 10, "2: small localized edit. 1: medium change across a few spots. "
                    "0: large refactor or new subsystem."),
     ("risk", 15, "2: hard to get wrong, behavior covered by tests. "
@@ -50,6 +52,9 @@ ASPECTS = [
 WEIGHTS = {key: weight for key, weight, _ in ASPECTS}
 # Any gated aspect scored 0 forces IGNORE regardless of the index.
 GATES = ("actionable", "correct", "scope", "risk")
+# Scope creep: anything below this scope score is IGNORE, unless the item is a
+# verified P0 (a defect that breaks production, loses data, or opens a hole).
+SCOPE_REQUIRED = 2
 KIND_RANK = {"review": 0, "comment": 1, "inline": 2}
 STATUSES = ("pending", "scored", "applied", "skipped")
 
@@ -142,6 +147,114 @@ def api_get(path, no_gh):
     return http_get(path)
 
 
+THREADS_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes { id isResolved comments(first: 100) { nodes { databaseId } } }
+      }
+    }
+  }
+}
+"""
+
+RESOLVE_MUTATION = """
+mutation($id: ID!) {
+  resolveReviewThread(input: {threadId: $id}) { thread { id isResolved } }
+}
+"""
+
+
+class GraphQLError(RuntimeError):
+    pass
+
+
+def graphql(query, variables, no_gh):
+    """Run one GraphQL request through gh, or over HTTPS with a token.
+
+    Raises GraphQLError; `resolve` treats that as fatal, `fetch` as a warning.
+    """
+    if not no_gh and shutil.which("gh"):
+        cmd = ["gh", "api", "graphql", "-f", "query=" + query]
+        for key, value in variables.items():
+            if value is None:
+                continue
+            cmd += ["-F" if isinstance(value, int) else "-f", "%s=%s" % (key, value)]
+        proc = run(cmd)
+        if proc.returncode == 0:
+            data = json.loads(proc.stdout)
+            if data.get("errors"):
+                raise GraphQLError("GraphQL error: %s" % data["errors"][0].get("message", data["errors"]))
+            return data["data"]
+        print("gh failed (%s); falling back to HTTPS"
+              % (proc.stderr.strip().splitlines() or ["gh api graphql failed"])[0], file=sys.stderr)
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise GraphQLError("GraphQL needs an authenticated gh or GH_TOKEN / GITHUB_TOKEN")
+    req = urllib.request.Request(
+        API_ROOT + "/graphql",
+        data=json.dumps({"query": query, "variables": variables}).encode("utf-8"),
+        headers={
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
+            "User-Agent": "pr-feedback-script",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as err:
+        raise GraphQLError("GitHub GraphQL returned %d" % err.code)
+    except urllib.error.URLError as err:
+        raise GraphQLError("cannot reach api.github.com (%s)" % err.reason)
+    if data.get("errors"):
+        raise GraphQLError("GraphQL error: %s" % data["errors"][0].get("message", data["errors"]))
+    return data["data"]
+
+
+def review_threads(slug, pr, no_gh):
+    """Every review thread on the PR: id, isResolved, and its comment database ids."""
+    owner, name = slug.split("/", 1)
+    threads, after = [], None
+    while True:
+        data = graphql(THREADS_QUERY, {"owner": owner, "name": name,
+                                       "number": pr, "after": after}, no_gh)
+        page = data["repository"]["pullRequest"]["reviewThreads"]
+        threads.extend(page["nodes"])
+        if not page["pageInfo"]["hasNextPage"]:
+            return threads
+        after = page["pageInfo"]["endCursor"]
+
+
+# ---------- Copilot review overview ----------
+
+# Copilot code review posts its review body as an overview that starts with
+# this marker. Each open issue in it links to an inline comment that `fetch`
+# already collects, so the overview is stored as PR metadata, not as an item.
+OVERVIEW_MARK = re.compile(r"<!--\s*ccr-overview-v\d+\s*-->")
+OVERVIEW_ISSUE = re.compile(
+    r'alt="(\w+) severity".*?#discussion_r(\d+)\)(?:[ \t]*·[ \t]*([^\n<]+))?')
+
+
+def parse_overview(body):
+    """Return the verdict heading, its summary line, and {comment id: (severity, status)}."""
+    verdict, summary = "", ""
+    lines = [line.strip() for line in body.splitlines()]
+    for pos, line in enumerate(lines):
+        if line.startswith("### "):
+            verdict = line[4:].strip()
+            summary = next((l for l in lines[pos + 1:] if l), "")
+            if summary.startswith("<"):
+                summary = ""
+            break
+    issues = {}
+    for severity, comment_id, status in OVERVIEW_ISSUE.findall(body):
+        issues["rc" + comment_id] = (severity, (status or "").strip())
+    return verdict, summary, issues
+
+
 # ---------- state ----------
 
 def state_path(pr):
@@ -188,11 +301,19 @@ def sort_key(item):
 
 # ---------- scoring ----------
 
-def compute_verdict(scores, threshold):
+def compute_verdict(scores, threshold, p0=None):
+    """Return (index, verdict, gated aspects).
+
+    A P0 lifts the scope gate and the threshold; the other gates still apply.
+    """
     index = round(sum(scores[k] * WEIGHTS[k] / 2.0 for k in WEIGHTS), 1)
-    gated = sorted(k for k in GATES if scores[k] == 0)
+    gated = sorted(k for k in GATES if k != "scope" and scores[k] == 0)
+    if not p0 and scores["scope"] < SCOPE_REQUIRED:
+        gated = sorted(gated + ["scope"])
     if gated:
         return index, "IGNORE", gated
+    if p0:
+        return index, "APPLY", []
     return index, ("APPLY" if index >= threshold else "IGNORE"), []
 
 
@@ -200,7 +321,7 @@ def recompute_all(state):
     for item in state["items"]:
         if item.get("scores"):
             item["index"], item["verdict"], item["gated"] = compute_verdict(
-                item["scores"], state["threshold"]
+                item["scores"], state["threshold"], item.get("p0")
             )
 
 
@@ -225,6 +346,10 @@ def make_item(item_id, kind, raw_user, body, **extra):
         "verdict": None,
         "gated": [],
         "note": "",
+        "p0": None,
+        "severity": None,
+        "copilot_status": None,
+        "resolved": False,
         "deleted": False,
     }
     item.update(extra)
@@ -243,7 +368,7 @@ def cmd_fetch(args):
     reviews = api_get(base + "/reviews", args.no_gh)
     general = api_get("repos/%s/issues/%d/comments" % (slug, args.pr), args.no_gh)
 
-    items = []
+    items, overviews, issue_meta = [], [], {}
     for c in inline:
         items.append(make_item(
             "rc%d" % c["id"], "inline", c.get("user"), c.get("body") or "",
@@ -254,9 +379,15 @@ def cmd_fetch(args):
             url=c.get("html_url") or "",
             diff_hunk=c.get("diff_hunk") or "",
         ))
-    for r in reviews:
+    for r in sorted(reviews, key=lambda r: r.get("submitted_at") or ""):
         body = (r.get("body") or "").strip()
         if not body:
+            continue
+        if OVERVIEW_MARK.search(body):
+            verdict, summary, issues = parse_overview(body)
+            issue_meta.update(issues)  # a later overview overrides an earlier one
+            overviews.append({"id": "rv%d" % r["id"], "url": r.get("html_url") or "",
+                              "verdict": verdict, "summary": summary, "issues": len(issues)})
             continue
         items.append(make_item(
             "rv%d" % r["id"], "review", r.get("user"), body,
@@ -269,7 +400,23 @@ def cmd_fetch(args):
             url=c.get("html_url") or "",
         ))
 
+    for item in items:
+        if item["id"] in issue_meta:
+            item["severity"], item["copilot_status"] = issue_meta[item["id"]]
+
     old = load_state(args.pr, missing_ok=True)
+    try:
+        resolved = {"rc%d" % c["databaseId"]
+                    for t in review_threads(slug, args.pr, args.no_gh) if t["isResolved"]
+                    for c in t["comments"]["nodes"]}
+    except GraphQLError as err:
+        resolved = None
+        print("warning: thread resolution state unavailable (%s); keeping the last known state"
+              % err, file=sys.stderr)
+    old_resolved = {i["id"] for i in old["items"] if i.get("resolved")} if old else set()
+    for item in items:
+        item["resolved"] = item["id"] in (old_resolved if resolved is None else resolved)
+
     threshold = args.threshold if args.threshold is not None else (
         old["threshold"] if old else DEFAULT_THRESHOLD
     )
@@ -279,8 +426,8 @@ def cmd_fetch(args):
         if prev is None:
             continue
         if prev["body_hash"] == item["body_hash"]:
-            for key in ("status", "scores", "index", "verdict", "gated", "note"):
-                item[key] = prev[key]
+            for key in ("status", "scores", "index", "verdict", "gated", "note", "p0"):
+                item[key] = prev.get(key)
         elif prev["status"] != "pending":
             item["note"] = "body edited after scoring; score again"
     for leftover in old_items.values():
@@ -296,6 +443,7 @@ def cmd_fetch(args):
         "pr_state": meta.get("state", ""),
         "files": sorted(f.get("filename", "") for f in files),
         "threshold": threshold,
+        "copilot_overviews": overviews,
         "items": items,
     }
     recompute_all(state)
@@ -308,6 +456,7 @@ def cmd_fetch(args):
     print("PR #%d %s: %s" % (args.pr, slug, state["title"]))
     print("fetched %d items: %d inline, %d review bodies, %d comments"
           % (sum(kinds.values()), kinds["inline"], kinds["review"], kinds["comment"]))
+    print_overview(state)
     print("state: %s (threshold %.1f)" % (os.path.relpath(state_path(args.pr)), threshold))
     print_counts(state)
 
@@ -317,13 +466,30 @@ def cmd_rubric(_args):
     for key, weight, anchors in ASPECTS:
         print("  %-10s weight %2d  %s" % (key, weight, anchors))
     print("Gates: a 0 on any of %s forces IGNORE regardless of the index." % ", ".join(GATES))
+    print("Scope gate: scope below %d forces IGNORE, unless the item is scored with --p0." % SCOPE_REQUIRED)
     print("Index = sum(score / 2 * weight), range 0-100.")
     print("Verdict: APPLY when no gate fired and index >= threshold (default %.1f)." % DEFAULT_THRESHOLD)
+    print("P0: --p0 '<what breaks>' needs correct=2; it lifts the scope gate and the threshold.")
 
 
 def one_line(text, width):
     flat = re.sub(r"\s+", " ", text).strip()
     return flat if len(flat) <= width else flat[: width - 3] + "..."
+
+
+def print_overview(state):
+    """Print the latest Copilot overview verdict; its issues are listed as inline items."""
+    overviews = state.get("copilot_overviews") or []
+    if overviews:
+        last = overviews[-1]
+        print("copilot overview %s: %s (%d linked issue%s)"
+              % (last["id"], last["verdict"], last["issues"], "" if last["issues"] == 1 else "s"))
+        if last["summary"]:
+            print("  " + one_line(last["summary"], 160))
+
+
+def sev(item):
+    return (item.get("severity") or "-")[:1]
 
 
 def where(item):
@@ -342,9 +508,10 @@ def cmd_list(args):
             continue
         verdict = item["verdict"] or "-"
         index = "%.1f" % item["index"] if item["index"] is not None else "-"
-        flags = ("~" if item["outdated"] else "") + ("x" if item["deleted"] else "")
-        print("%-10s %-8s %-6s %5s %-2s %-16s %-28s %s" % (
-            item["id"], item["status"], verdict, index, flags,
+        flags = (("~" if item["outdated"] else "") + ("r" if item.get("resolved") else "")
+                 + ("x" if item["deleted"] else ""))
+        print("%-10s %-8s %-6s %5s %s %-3s %-16s %-28s %s" % (
+            item["id"], item["status"], verdict, index, sev(item), flags,
             one_line(item["author"], 16), one_line(where(item), 28),
             one_line(item["body"], 70),
         ))
@@ -360,11 +527,18 @@ def print_item(item, threshold):
         print("url:     %s" % item["url"])
     if item["deleted"]:
         print("deleted: true (comment no longer on GitHub)")
+    if item.get("resolved"):
+        print("resolved: true (thread already resolved on GitHub)")
+    if item.get("severity"):
+        print("severity: %s (Copilot overview%s)"
+              % (item["severity"], ": " + item["copilot_status"] if item.get("copilot_status") else ""))
     if item["scores"]:
         parts = " ".join("%s=%d" % (k, item["scores"][k]) for k, _, _ in ASPECTS)
         gate_note = " gated: %s" % ",".join(item["gated"]) if item["gated"] else ""
         print("scores:  %s -> index %.1f -> %s (threshold %.1f)%s"
               % (parts, item["index"], item["verdict"], threshold, gate_note))
+    if item.get("p0"):
+        print("p0:      %s" % item["p0"])
     print("status:  %s%s" % (item["status"], "  note: " + item["note"] if item["note"] else ""))
     print("--- body ---")
     print(item["body"])
@@ -386,27 +560,33 @@ def cmd_score(args):
     if item["status"] in ("applied", "skipped"):
         fail("%s is already %s" % (args.id, item["status"]))
     scores = {key: getattr(args, key) for key in WEIGHTS}
+    if args.p0 and scores["correct"] != 2:
+        fail("--p0 needs --correct 2: verify the failure against the code first")
     item["scores"] = scores
-    item["index"], item["verdict"], item["gated"] = compute_verdict(scores, state["threshold"])
+    item["p0"] = args.p0 or None
+    item["index"], item["verdict"], item["gated"] = compute_verdict(
+        scores, state["threshold"], item["p0"])
     item["status"] = "scored"
     if args.note:
         item["note"] = args.note
     save_state(state)
     gate_note = " (gated: %s)" % ",".join(item["gated"]) if item["gated"] else ""
-    print("%s index %.1f -> %s (threshold %.1f)%s"
-          % (args.id, item["index"], item["verdict"], state["threshold"], gate_note))
+    p0_note = " (P0)" if item["p0"] else ""
+    print("%s index %.1f -> %s (threshold %.1f)%s%s"
+          % (args.id, item["index"], item["verdict"], state["threshold"], gate_note, p0_note))
 
 
 def apply_queue(state):
-    queue = [i for i in state["items"]
-             if i["verdict"] == "APPLY" and i["status"] == "scored" and not i["deleted"]]
-    queue.sort(key=lambda i: (-i["index"], num_id(i["id"])))
+    queue = [i for i in state["items"] if i["verdict"] == "APPLY" and i["status"] == "scored"
+             and not i["deleted"] and not i.get("resolved")]
+    queue.sort(key=lambda i: (not i.get("p0"), -i["index"], num_id(i["id"])))
     return queue
 
 
 def cmd_next(args):
     state = load_state(args.pr)
-    pending = [i for i in state["items"] if i["status"] == "pending" and not i["deleted"]]
+    pending = [i for i in state["items"]
+               if i["status"] == "pending" and not i["deleted"] and not i.get("resolved")]
     queue = apply_queue(state)
     if not queue:
         if pending:
@@ -456,7 +636,11 @@ def cmd_skip(args):
 def print_counts(state):
     live = [i for i in state["items"] if not i["deleted"]]
     counts = {status: 0 for status in STATUSES}
+    resolved_unscored = 0
     for item in live:
+        if item["status"] == "pending" and item.get("resolved"):
+            resolved_unscored += 1
+            continue
         counts[item["status"]] += 1
     apply_left = len(apply_queue(state))
     ignored = sum(1 for i in live if i["status"] == "scored" and i["verdict"] == "IGNORE")
@@ -464,18 +648,27 @@ def print_counts(state):
     line = ("pending %d | scored %d (apply queue %d, ignore %d) | applied %d | skipped %d"
             % (counts["pending"], counts["scored"], apply_left, ignored,
                counts["applied"], counts["skipped"]))
+    if resolved_unscored:
+        line += " | resolved on GitHub, unscored %d" % resolved_unscored
     if deleted:
         line += " | deleted %d" % deleted
     print(line)
 
 
+def status_note(item):
+    if item.get("p0"):
+        return "P0: " + item["p0"] + ("; " + item["note"] if item["note"] else "")
+    return item["note"]
+
+
 def cmd_status(args):
     state = load_state(args.pr)
     print("PR #%d %s: %s" % (state["pr"], state["repo"], state["title"]))
+    print_overview(state)
     print("threshold %.1f | aspects: A=actionable C=correct S=scope E=effort R=risk (0-2)"
           % state["threshold"])
-    header = "%-10s %-7s %-30s %s %s %s %s %s %6s %-7s %-8s %s" % (
-        "ID", "KIND", "WHERE", "A", "C", "S", "E", "R", "INDEX", "VERDICT", "STATUS", "NOTE")
+    header = "%-10s %-7s %-30s %s %s %s %s %s %s %6s %-7s %-8s %s" % (
+        "ID", "KIND", "WHERE", "SEV", "A", "C", "S", "E", "R", "INDEX", "VERDICT", "STATUS", "NOTE")
     print(header)
     print("-" * len(header))
     for item in state["items"]:
@@ -485,14 +678,63 @@ def cmd_status(args):
         loc = where(item)
         if item["outdated"]:
             loc += " ~"
+        if item.get("resolved"):
+            loc += " r"
         if item["deleted"]:
             loc += " x"
-        print("%-10s %-7s %-30s %s %s %s %s %s %6s %-7s %-8s %s" % (
-            item["id"], item["kind"], one_line(loc, 30),
+        print("%-10s %-7s %-30s %-3s %s %s %s %s %s %6s %-7s %-8s %s" % (
+            item["id"], item["kind"], one_line(loc, 30), sev(item),
             cell("actionable"), cell("correct"), cell("scope"), cell("effort"), cell("risk"),
-            index, item["verdict"] or "-", item["status"], one_line(item["note"], 40)))
+            index, item["verdict"] or "-", item["status"], one_line(status_note(item), 40)))
     print("-" * len(header))
     print_counts(state)
+
+
+def decided(item):
+    """True when the item needs nothing more from the agent."""
+    if item["deleted"] or item.get("resolved") or item["status"] in ("applied", "skipped"):
+        return True
+    return item["status"] == "scored" and item["verdict"] == "IGNORE"
+
+
+def cmd_resolve(args):
+    state = load_state(args.pr)
+    by_id = {i["id"]: i for i in state["items"]}
+    try:
+        threads = review_threads(state["repo"], state["pr"], args.no_gh)
+    except GraphQLError as err:
+        fail(str(err))
+
+    resolved, left_open = 0, []
+    for thread in threads:
+        if thread["isResolved"]:
+            continue
+        ids = ["rc%d" % c["databaseId"] for c in thread["comments"]["nodes"]]
+        if not ids:
+            continue
+        missing = [i for i in ids if i not in by_id]
+        open_items = [i for i in ids if i in by_id and not decided(by_id[i])]
+        if missing:
+            left_open.append((ids[0], "comments not fetched yet (%s); run fetch" % ", ".join(missing)))
+        elif open_items:
+            left_open.append((ids[0], "undecided: %s" % ", ".join(
+                "%s %s" % (i, by_id[i]["status"]) for i in open_items)))
+        elif args.dry_run:
+            print("would resolve %s (%s)" % (ids[0], by_id[ids[0]]["status"]))
+            resolved += 1
+        else:
+            try:
+                graphql(RESOLVE_MUTATION, {"id": thread["id"]}, args.no_gh)
+            except GraphQLError as err:
+                fail("could not resolve %s: %s" % (ids[0], err))
+            print("resolved %s (%s)" % (ids[0], by_id[ids[0]]["status"]))
+            resolved += 1
+    for root, reason in left_open:
+        print("left open %s: %s" % (root, reason))
+    print("%s %d thread(s), left %d open; review bodies and discussion comments have no resolve state"
+          % ("would resolve" if args.dry_run else "resolved", resolved, len(left_open)))
+    if left_open:
+        sys.exit(3)
 
 
 def main():
@@ -528,6 +770,8 @@ def main():
     for key, _, anchors in ASPECTS:
         p.add_argument("--" + key, type=int, choices=[0, 1, 2], required=True, help=anchors)
     p.add_argument("--note", help="one-line justification for the scores")
+    p.add_argument("--p0", metavar="WHAT_BREAKS",
+                   help="verified P0 outside the PR's scope: what breaks in production")
     p.set_defaults(func=cmd_score)
 
     p = sub.add_parser("next", help="print the highest-index APPLY item still open")
@@ -549,6 +793,12 @@ def main():
     p = sub.add_parser("status", help="print the scoring matrix and counts")
     p.add_argument("pr", type=int)
     p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser("resolve", help="resolve review threads whose comments all have a decision")
+    p.add_argument("pr", type=int)
+    p.add_argument("--dry-run", action="store_true", help="print what would be resolved")
+    p.add_argument("--no-gh", action="store_true", help="skip gh, use HTTPS directly")
+    p.set_defaults(func=cmd_resolve)
 
     args = parser.parse_args()
     args.func(args)
