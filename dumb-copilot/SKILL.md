@@ -25,22 +25,16 @@ Two rules outrank everything else in this skill:
 ## Workflow: one comment at a time
 
 1. Run `fetch <pr>` from the target repo's root. It pulls three feedback sources: inline comments (comments attached to a diff line), review bodies (the summary text a reviewer submits with approve or request-changes), and discussion comments on the PR thread. When the repo has no `origin` remote pointing at github.com, pass `--repo owner/name`. `--no-gh` skips `gh` entirely, and `--threshold N` changes the APPLY threshold for this PR. On the first run, also add `.pr-feedback/` to the target repo's `.git/info/exclude` (a git-ignore file inside the repo's internals, shared by every worktree and never committed), so a later `git add -A` cannot sweep review text and code snippets into history; skip this only when the user says to commit the state.
-2. Run `list <pr>` to see the items, then for each `pending` item: run `show <pr> <id>`, read the code the comment points at, and check its claim; only then run `score` with all five aspects. Score `correct` 2 only after verifying the claim against the code; a claim that merely sounds plausible caps at 1. For the `scope` aspect, the state file's `files` array lists every file the PR touches. In `list`, a `~` marks an outdated inline comment (the diff line it pointed at has changed since); `show` prints `[outdated]` and, for a reply, its parent's id, so read the parent comment before scoring a reply on its own. An `r` marks a comment whose thread is already resolved on GitHub; it needs no score, and `next` and `resolve` treat it as decided.
+2. Run `list <pr>` to see the items, then for each `pending` item: run `show <pr> <id>`, read the code the comment points at, and check its claim; only then run `score` with all five aspects. Score `correct` 2 only after verifying the claim against the code; a claim that merely sounds plausible caps at 1. For the `scope` aspect, the state file's `files` array lists every file the PR touches. In `list`, a `~` marks an outdated inline comment (the diff line it pointed at has changed since); `show` prints `[outdated]` and, for a reply, its parent's id, so read the parent comment before scoring a reply on its own.
 3. Run `next <pr>`. It prints the highest-index APPLY item still open. Implement that one change, then mark it `done <pr> <id>`. If the change should not be made despite its APPLY verdict (for example, it conflicts with a project convention), run `skip <pr> <id> --reason "..."` instead.
 4. Repeat step 3 until `next` reports an empty queue, then run `status <pr>` and report the matrix to the user: what was applied, what was skipped and why, what was ignored and why.
-5. Once the user has committed and pushed, run `resolve <pr> --dry-run` to see which threads close, then `resolve <pr>`. A thread it leaves open names the undecided or unfetched comments: run `fetch` for new replies, score them, and run `resolve` again until it exits 0. Review bodies and discussion comments have no resolved state on GitHub, so only inline threads are resolved.
+5. Once the user has committed and pushed, run `resolve <pr>` (it needs an authenticated `gh`). A thread it leaves open names the undecided or unfetched comments: run `fetch` for new replies, score them, and run `resolve` again until it exits 0. Review bodies and discussion comments have no resolved state on GitHub, so only inline threads are resolved.
 
 Items with an IGNORE verdict need no action. Re-running `fetch` at any point is safe: unchanged comments keep their scores and status, and a comment edited on GitHub after scoring drops back to `pending` with a note. A comment deleted on GitHub disappears from the state while it is still unscored; once it carries scores or a decision, its record stays, flagged as deleted.
 
 ## Copilot code review
 
-Copilot reviews arrive in the format GitHub has used since November 2026; `fetch` reads it as follows. Checked against live PRs on 2026-11-16.
-
-- **The overview is not an item.** Copilot's review body starts with `<!-- ccr-overview-v2 -->`, then a verdict heading such as `🟡 Changes recommended` or `🔵 Needs a closer look`, a one-line summary, and an "open issues" list. Each open issue links to an inline comment (`#discussion_r<id>`) that `fetch` already collects as `rc<id>`, so `fetch` stores the overview as PR metadata instead of a scoreable item. `fetch` and `status` print the latest verdict and summary; report them to the user, but do not score them.
-- **Severity.** Each open issue carries a `High`, `Medium`, or `Low` label in the overview only; the inline comment's own body has none. `fetch` copies the label onto the matching inline item, shown as `H`, `M`, or `L` in `list` and `status` and in full in `show`. Severity is Copilot's opinion, not a score: a `High` item is the first place to look for a P0, and it still needs the failure confirmed in the code before `--p0`. A `Low` item outside the PR's scope is ignored like any other.
-- **Grouped comments.** Copilot posts one comment for a pattern it found in several places. Apply it only where the PR changed the code, and say in `--note` which occurrences were left alone.
-- **Status-only reviews.** A Copilot review body that says it could not review the PR (quota, excluded files) is not feedback. Score it `actionable` 0 and tell the user Copilot did not review.
-- **Resolved threads are hidden.** The new PR Overview page filters to unresolved conversations by default, so a thread left open after a run is what the reviewer sees next. That is why `resolve` is a required step.
+Copilot's review body is an overview (it starts with `<!-- ccr-overview-v2 -->`) whose open issues are the same findings it posts as inline comments. `fetch` therefore keeps only the overview's verdict heading, such as `🟡 Changes recommended`, as `copilot_overview` in the state file and prints it; the inline comments are the items to score. A Copilot body that says it could not review the PR (quota, excluded files) is not feedback: score it `actionable` 0 and tell the user.
 
 ## The rubric
 
@@ -57,7 +51,7 @@ Each comment gets five scores, each 0, 1, or 2. The script computes `index = sum
 Two rules turn the index into a verdict; the script enforces both:
 
 - **Gates.** A 0 on `actionable`, `correct`, or `risk`, or a `scope` below 2, forces IGNORE no matter how high the index is. Praise, questions, wrong claims, risky changes, and anything the PR does not strictly need never reach the apply queue. `effort` is the one ungated aspect: a large change lowers the index but never blocks an item by itself.
-- **P0 exception.** `score --p0 "<what breaks>"` marks a verified P0. It requires `--correct 2`, lifts the scope gate and the threshold, and puts the item at the front of the queue. The other gates still apply. Use it only for a failure you confirmed in the code, never for "this could be cleaner".
+- **P0 exception.** `score --p0 "<what breaks>"` marks a verified P0. It requires `--correct 2` and lifts the scope gate and the threshold. The other gates still apply. Use it only for a failure you confirmed in the code, never for "this could be cleaner".
 - **Threshold.** With no gate fired, an index at or above the threshold (default 65.0) means APPLY; below means IGNORE. `fetch` sets the threshold per PR and stores it in the state file; when the threshold changes, the script recomputes every verdict from the stored scores.
 
 The worked examples below use the default threshold:
@@ -90,10 +84,8 @@ Score every piece of feedback before implementing it, and treat an IGNORE verdic
 | `done <pr> <id> [--override "..."]` | mark implemented; override required for IGNORE items |
 | `skip <pr> <id> --reason "..."` | decline an APPLY item, reason recorded |
 | `status <pr>` | the full scoring matrix plus summary counts |
-| `resolve <pr> [--dry-run] [--no-gh]` | resolve every review thread whose comments all have a decision; exit 3 while any stays open |
-
-`fetch` also reads each thread's resolved state through GitHub's GraphQL API. Without an authenticated `gh` or a token, it warns and keeps the last known state.
+| `resolve <pr>` | resolve every review thread whose comments all have a decision; exit 3 while any stays open |
 
 ## What the script never does
 
-The script writes the state file, and through `resolve` it marks review threads resolved. It posts nothing else to GitHub: no comment, reply, or review. `resolve` needs an authenticated `gh` or a `GH_TOKEN` / `GITHUB_TOKEN` with write access to pull requests. Source files and git history stay untouched; the two git commands it runs are read-only lookups for the repo root and the origin remote. Implementing an APPLY item is the agent's job, done in the working tree where the user can diff and commit it.
+The script writes the state file, and through `resolve` it marks review threads resolved. It posts nothing else to GitHub: no comment, reply, or review. `resolve` needs an authenticated `gh` with write access to pull requests. Source files and git history stay untouched; the two git commands it runs are read-only lookups for the repo root and the origin remote. Implementing an APPLY item is the agent's job, done in the working tree where the user can diff and commit it.
