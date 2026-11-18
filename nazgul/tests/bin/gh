@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Fake gh for nazgul tests: emulates the GitHub contents API on a local folder.
-#   FAKE_GH_ROOT  folder that stands in for the report repo (one level per owner/repo)
-#   FAKE_GH_FAIL  when set, every call fails like a network error
-#   FAKE_GH_LOG   append one line per call
+# Fake gh for nazgul tests: emulates the GitHub contents API and the commits listing on a local folder.
+#   FAKE_GH_ROOT      folder that stands in for the report repo (one level per owner/repo)
+#   FAKE_GH_FAIL      when set, every call fails like a network error
+#   FAKE_GH_LOG       append one line per call
+#   FAKE_GH_AUTHOR    default author login for a file with no commit-meta line (default: responder)
+#   FAKE_GH_VERIFIED  default verification for that file: true or false (default: true)
+#   commit-meta.tsv   under FAKE_GH_ROOT, one line per path:
+#                     relpath \t author \t committer \t true|false \t reason
+#                     The last line for a path wins. Committer defaults to the author.
 set -u
 [[ -n "${FAKE_GH_LOG:-}" ]] && printf '%s\n' "$*" >>"$FAKE_GH_LOG"
 [[ "${1:-}" == api ]] || { echo "fake gh: only 'api' is supported" >&2; exit 1; }
@@ -26,7 +31,36 @@ if [[ "$endpoint" =~ ^repos/([^/]+/[^/]+)$ ]]; then
   [[ -d "$FAKE_GH_ROOT/${BASH_REMATCH[1]}" ]] || notfound
   echo '{"full_name":"x","permissions":{"push":true}}' | out; exit 0
 fi
-[[ "$endpoint" =~ ^repos/([^/]+/[^/]+)/contents/(.*)$ ]] || notfound
+base="${endpoint%%\?*}"; query=""
+[[ "$endpoint" == *"?"* ]] && query="${endpoint#*\?}"
+if [[ "$base" =~ ^repos/([^/]+/[^/]+)/commits$ ]]; then
+  repo="$FAKE_GH_ROOT/${BASH_REMATCH[1]}"
+  [[ -d "$repo" ]] || notfound
+  qpath=""; rest="${query}&"
+  while [[ -n "$rest" ]]; do
+    pair="${rest%%&*}"; rest="${rest#*&}"
+    [[ "${pair%%=*}" == path ]] && qpath="${pair#*=}"
+  done
+  [[ -n "$qpath" && -e "$repo/$qpath" ]] || { echo '[]' | out; exit 0; }
+  login="${FAKE_GH_AUTHOR:-responder}"
+  committer="$login"
+  verified="${FAKE_GH_VERIFIED:-true}"
+  reason="valid"
+  [[ "$verified" == true ]] || reason="unsigned"
+  if [[ -f "$FAKE_GH_ROOT/commit-meta.tsv" ]]; then
+    hit="$(awk -F '\t' -v p="$qpath" '$1==p {a=$2; c=$3; v=$4; r=$5} END {if (a!="") printf "%s\t%s\t%s\t%s", a, c, v, r}' "$FAKE_GH_ROOT/commit-meta.tsv")"
+    if [[ -n "$hit" ]]; then
+      login="${hit%%$'\t'*}"; hit="${hit#*$'\t'}"
+      committer="${hit%%$'\t'*}"; hit="${hit#*$'\t'}"
+      verified="${hit%%$'\t'*}"; reason="${hit#*$'\t'}"
+      [[ -n "$committer" ]] || committer="$login"
+    fi
+  fi
+  jq -n --arg login "$login" --arg committer "$committer" --argjson verified "$verified" --arg reason "$reason" \
+    '[{author:{login:$login}, committer:{login:$committer}, commit:{verification:{verified:$verified, reason:$reason}}}]' | out
+  exit 0
+fi
+[[ "$base" =~ ^repos/([^/]+/[^/]+)/contents/(.*)$ ]] || notfound
 repo="$FAKE_GH_ROOT/${BASH_REMATCH[1]}"; rel="${BASH_REMATCH[2]}"; p="$repo/$rel"
 [[ -d "$repo" ]] || notfound
 case "$method" in

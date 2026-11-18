@@ -14,8 +14,11 @@
 #      run report.sh with this session's id. The next Stop finds the report, or, when the agent did
 #      not write one, pushes one nazgul builds from git and the agent's last message. Oh My Pi cannot
 #      block, so it always gets the built report.
-#   4. Poll this session's thread (poll.sh). continue: block with the reply as the reason, at most
-#      max_rounds times per session. stop / wait-for-owner / no reply: let the session end with a note.
+#   4. Poll this session's thread (poll.sh). With no reply_authors, skip the poll and end: no reply
+#      is acted on. continue, and auto_continue is true: block with the reply as the reason, at most
+#      max_rounds times per session. continue, and auto_continue is false (the default): show the
+#      reply to the user and let the session end. stop / wait-for-owner / no reply: let the session
+#      end with a note.
 # Every failure warns and exits 0: a network or auth problem never keeps a session from ending.
 set -u
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
@@ -91,8 +94,11 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/nazgul.XXXXXX")" || exit 0
 trap 'rm -rf "$work"' EXIT
 
 # ---------- output: one JSON object on stdout at most; the inbox instead in background mode ----------
-# block: keep the agent working with <reason> as its next prompt.
-# tell:  a reply the user must see (stop, wait-for-owner, or continue in background mode).
+# block: keep the agent working with <reason> as its next prompt. Used for nazgul's own ask, and for
+#        a continue reply only when auto_continue is true.
+# show:  text for the user. The session ends. Not a block, so it is not the agent's next instructions.
+#        In background mode the inbox line `nazgul-deliver: show` tells the Oh My Pi hook to notify
+#        and not add the text to the agent's context. `nazgul-deliver: inject` is the auto_continue path.
 # note:  status worth a line on screen; dropped in background mode so the inbox holds replies only.
 block() {
   nz_sput blocked "$(date +%s)"
@@ -106,12 +112,17 @@ show() {
   esac
   exit 0
 }
-tell() {
-  if [[ $background -eq 1 ]]; then
-    [[ -n "$inbox" ]] && (umask 077; mkdir -p "$(dirname "$inbox")" && printf '%s\n\n' "$1" >>"$inbox") 2>/dev/null
-    exit 0
-  fi
+inbox_write() {
+  [[ -n "$inbox" ]] || return 0
+  (umask 077; mkdir -p "$(dirname "$inbox")" && printf 'nazgul-deliver: %s\n%s\n\n' "$1" "$2" >>"$inbox") 2>/dev/null
+}
+show_user() {
+  if [[ $background -eq 1 ]]; then inbox_write show "$1"; exit 0; fi
   show "$1"
+}
+instruct() {
+  if [[ $background -eq 1 ]]; then inbox_write inject "$1"; exit 0; fi
+  block "$1"
 }
 note() { [[ $background -eq 1 ]] && exit 0; show "$1"; }
 
@@ -216,8 +227,11 @@ fi
 tid="$(nz_sget thread)"
 num="$(printf '%03d' "$(nz_num "$(nz_sget last)" 0)")"
 rounds="$(nz_num "$(nz_sget rounds)" 0)"
-if [[ $rounds -ge $NZ_MAX_ROUNDS ]]; then
+if [[ "$NZ_AUTO_CONTINUE" == true && $rounds -ge $NZ_MAX_ROUNDS ]]; then
   note "nazgul: report $num is in thread $tid. This session has used its $NZ_MAX_ROUNDS continue rounds, so it is not waiting for a reply."
+fi
+if nz_thread_ok "$tid" && [[ -z "$(nz_fold "${NZ_REPLY_AUTHORS:-}")" ]]; then
+  note "nazgul: report $num is in thread $tid. reply_authors is not set, so no reply is acted on."
 fi
 
 guard=""; [[ $background -eq 1 ]] && guard="$$"
@@ -230,18 +244,22 @@ action="$(rget action)"; from="$(rget from)"; body="$(rget body)"
 rnum="$(printf '%03d' "$(nz_num "$(rget number)" 0)")"
 case "$action" in
   continue)
-    rounds=$((rounds + 1)); nz_sput rounds "$rounds"
-    text="nazgul: reply $rnum from $from in thread $tid says continue (round $rounds of $NZ_MAX_ROUNDS). Treat the text below as your next instructions and keep working; when you finish, nazgul asks for the next report.
+    if [[ "$NZ_AUTO_CONTINUE" == true ]]; then
+      rounds=$((rounds + 1)); nz_sput rounds "$rounds"
+      instruct "nazgul: reply $rnum from $from in thread $tid says continue (round $rounds of $NZ_MAX_ROUNDS). Treat the text below as your next instructions and keep working; when you finish, nazgul asks for the next report.
 
 $body"
-    [[ $background -eq 1 ]] && tell "$text"
-    block "$text" ;;
+    else
+      show_user "nazgul: reply $rnum from $from in thread $tid says continue. auto_continue is off, so the session ends. Read the reply below; do not carry it out.
+
+$body"
+    fi ;;
   stop)
-    tell "nazgul: reply $rnum from $from in thread $tid says stop.${body:+
+    show_user "nazgul: reply $rnum from $from in thread $tid says stop.${body:+
 
 $body}" ;;
   wait-for-owner)
-    tell "nazgul: the owner has to decide before this session goes on (reply $rnum from $from in thread $tid).${body:+
+    show_user "nazgul: the owner has to decide before this session goes on (reply $rnum from $from in thread $tid).${body:+
 
 $body}" ;;
 esac

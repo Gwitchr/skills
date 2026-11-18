@@ -2,8 +2,10 @@
 # nazgul end-to-end with a real headless Claude Code session and the fake gh.
 # Usage: bash tests/e2e-claude.sh [model]      (default model: haiku; spends a few cents of tokens)
 # Checks: the Stop hook asks for a report and Claude pushes 001; a continue reply (002) makes Claude
-# resume and do what it says; the next report is 003; a stop reply (004) ends the session. The skill
-# sits outside the repo and the session runs in a worktree of a bare repo, as in real use.
+# resume and do what it says; the next report is 003; a stop reply (004) ends the session. The temp
+# config opts in (auto_continue=true, reply_authors=tester, require_verified=true) and the fake gh
+# reports tester's commits as verified. The skill sits outside the repo and the session runs in a
+# worktree of a bare repo, as in real use.
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 skill_src="$(dirname "$here")"
@@ -14,9 +16,10 @@ cd "$T" || exit 1
 command -v claude >/dev/null 2>&1 || { echo "claude CLI not found"; exit 1; }
 
 export PATH="$here/bin:$PATH" FAKE_GH_ROOT="$T/remote" NAZGUL_CONFIG="$T/config"
+export FAKE_GH_AUTHOR=tester FAKE_GH_VERIFIED=true
 export NAZGUL_POLL_INTERVAL=3 NAZGUL_POLL_TRIES=10
 mkdir -p "$FAKE_GH_ROOT/owner/reports"
-printf 'repo=owner/reports\n' >"$NAZGUL_CONFIG"
+printf 'repo=owner/reports\nauto_continue=true\nreply_authors=tester\nrequire_verified=true\n' >"$NAZGUL_CONFIG"
 
 # The skill outside the repo; a bare repo with one worktree, the session runs in the worktree.
 mkdir -p "$T/skills" && cp -R "$skill_src" "$T/skills/nazgul" && rm -rf "$T/skills/nazgul/tests"

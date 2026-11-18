@@ -4,8 +4,10 @@
 //
 // agent_end cannot block, so this hook starts check.sh detached. check.sh pushes a report built from
 // git and the agent's last message, then polls the session's thread in the background. A reply goes
-// to an inbox file under <git common dir>/nazgul/inbox/, and this hook shows it (and adds it to the
-// context) while the session is idle, at session start, or at the next prompt.
+// to an inbox file under <git common dir>/nazgul/inbox/. The first line is `nazgul-deliver: show`
+// or `nazgul-deliver: inject`. show is notified and not added to the agent's context. inject (only
+// when auto_continue is on and the reply passed the author check) is shown and added to the context
+// while the session is idle, at session start, or at the next prompt. Anything else is show.
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -73,10 +75,21 @@ export default function nazgul(pi: ExtensionAPI): void {
 	};
 
 	const surface = (ctx: ExtensionContext): void => {
-		const text = takeInbox(ctx);
+		const raw = takeInbox(ctx);
+		if (!raw) return;
+		const nl = raw.indexOf("\n");
+		const first = nl === -1 ? raw : raw.slice(0, nl);
+		let mode: "show" | "inject" = "show";
+		let text = raw;
+		if (first === "nazgul-deliver: inject") {
+			mode = "inject";
+			text = raw.slice(nl + 1).trim();
+		} else if (first === "nazgul-deliver: show") {
+			text = raw.slice(nl + 1).trim();
+		}
 		if (!text) return;
-		ctx.ui.notify("nazgul: a reply arrived in the report thread", "info");
-		pi.sendMessage({ customType: "nazgul", content: text, display: true });
+		ctx.ui.notify(text, "info");
+		if (mode === "inject") pi.sendMessage({ customType: "nazgul", content: text, display: true });
 	};
 
 	pi.on("agent_end", async (event, ctx) => {

@@ -6,17 +6,22 @@
 # Waits --interval seconds (default 120), checks, and repeats up to --tries times (default 5), so a
 # thread with no reply costs about 10 minutes. --now checks once at once, with no wait.
 # It reads only projects/<project>/threads/<this session's thread>/ and only messages numbered
-# after this session's last report. A reply needs frontmatter with
-#   action: continue | stop | wait-for-owner      (from: and in_reply_to: are read when present)
+# after this session's last report. A reply counts only when nz_reply_gate accepts the commit that
+# last wrote that file (allowlisted author, and verified unless require_verified is false). The
+# file body is not read until the commit passes. A reply that fails is ignored, with a one-line
+# note on stderr, and is not treated as a reply. With no reply_authors, nothing is read and nothing
+# is acted on. A reply that passes needs frontmatter with
+#   action: continue | stop | wait-for-owner      (in_reply_to: is read when present)
 # and in_reply_to, when set, must equal the number of this session's last report.
 # The newest valid reply wins. It prints one JSON object and exits 0:
 #   {"number":2,"path":"...","from":"...","action":"continue","in_reply_to":"1","body":"..."}
+# "from" is the commit's GitHub author login, not the from: line in the file.
 # It prints nothing and exits 0 when there is no reply, no thread yet, no config, or the repo cannot
 # be reached (warned on stderr).
 set -u
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
 
-usage() { sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 agent="other"; session="${NAZGUL_SESSION:-}"; tries=""; interval=""; now=0; cwd="$PWD"; guard=""
 while [[ $# -gt 0 ]]; do
@@ -50,8 +55,14 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/nazgul.XXXXXX")" || exit 0
 trap 'rm -rf "$work"' EXIT
 
 # Prints the newest valid reply as JSON; returns 1 when there is none.
+# The commit is checked before the file is read, so a reply that is not allowlisted or not verified
+# never has its body loaded.
 find_reply() {
   local names n name f action from irt
+  if [[ -z "$(nz_fold "${NZ_REPLY_AUTHORS:-}")" ]]; then
+    nz_warn "reply_authors is not set; not acting on replies"
+    return 1
+  fi
   names="$(nz_list "$dir")"
   case $? in
     0) ;;
@@ -62,14 +73,16 @@ find_reply() {
     [[ $n -gt $last ]] || break
     name="$(printf '%s\n' "$names" | grep -E "^0*${n}_[A-Za-z0-9._-]+\.md$" | head -n 1)"
     [[ -n "$name" ]] || continue
+    if ! from="$(nz_reply_gate "$dir/$name")"; then
+      nz_warn "ignored $name: $from"
+      continue
+    fi
     f="$work/$name"
     nz_read "$dir/$name" >"$f" || continue
     action="$(nz_fm "$f" action | tr 'A-Z_ ' 'a-z--')"
     case "$action" in continue|stop|wait-for-owner) ;; *) continue ;; esac
     irt="$(nz_fm "$f" in_reply_to | tr -cd '0-9')"
     if [[ -n "$irt" && $((10#$irt)) -ne $last ]]; then continue; fi
-    from="$(nz_fm "$f" from)"
-    [[ -n "$from" ]] || from="${name#*_}"; from="${from%.md}"
     nz_body "$f" | head -c 20000 >"$f.body"
     jq -n --argjson number "$n" --arg path "$dir/$name" --arg from "$from" --arg action "$action" \
       --arg irt "$irt" --rawfile body "$f.body" \

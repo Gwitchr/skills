@@ -8,6 +8,12 @@
 #       max_rounds=<n>          continue rounds per session, default 3
 #       poll_tries=<n>          default 5 (NAZGUL_POLL_TRIES overrides it)
 #       poll_interval=<s>       default 120 (NAZGUL_POLL_INTERVAL overrides it)
+#       reply_authors=<logins>  GitHub logins, comma-separated, whose replies may be acted on.
+#                               Unset: no reply is acted on (the report is still pushed).
+#       auto_continue=true|false  default false. true: a continue reply is the agent's next
+#                               instructions. false: it is shown to the user and the session ends.
+#       require_verified=true|false  default true. false: an allowlisted author is enough, and the
+#                               commit does not have to be one GitHub reports as verified.
 #
 #       [project "/abs/path/to/repo.git"]   one section per enrolled repo, keyed by its git common dir
 #       slug=<slug>             optional; default: the repo name without .git
@@ -195,6 +201,11 @@ nz_load() {
   NZ_MAX_ROUNDS="$(nz_num "$v" 3)"
   NZ_POLL_TRIES="$(nz_num "${NAZGUL_POLL_TRIES:-$(nz_cfg "" poll_tries)}" 5)"
   NZ_POLL_INTERVAL="$(nz_num "${NAZGUL_POLL_INTERVAL:-$(nz_cfg "" poll_interval)}" 120)"
+  NZ_REPLY_AUTHORS="$(nz_cfg "" reply_authors)" || NZ_REPLY_AUTHORS=""
+  v="$(nz_cfg "" auto_continue)" || v=""
+  if [[ "$v" == true ]]; then NZ_AUTO_CONTINUE=true; else NZ_AUTO_CONTINUE=false; fi
+  v="$(nz_cfg "" require_verified)" || v=""
+  if [[ "$v" == false ]]; then NZ_REQUIRE_VERIFIED=false; else NZ_REQUIRE_VERIFIED=true; fi
   nz_origin
   return 0
 }
@@ -250,6 +261,99 @@ nz_list() {
 # nz_read <path>: raw content of a file in the report repo.
 nz_read() {
   nz_limit 30 gh api -H 'Accept: application/vnd.github.raw+json' "repos/$NZ_REPO/contents/$1" 2>/dev/null
+}
+
+# nz_fold <login>: lowercase, whitespace removed, for a GitHub login comparison.
+nz_fold() { printf '%s' "$1" | tr -d '[:space:]' | tr 'A-Z' 'a-z'; }
+
+# nz_author_allowed <login>: true when login is one of reply_authors. Comparison is case-insensitive.
+# An empty reply_authors allows nobody.
+nz_author_allowed() {
+  local want rest a
+  want="$(nz_fold "$1")"
+  [[ -n "$want" ]] || return 1
+  rest="${NZ_REPLY_AUTHORS:-},"
+  while [[ -n "$rest" ]]; do
+    a="$(nz_fold "${rest%%,*}")"
+    rest="${rest#*,}"
+    [[ -n "$a" && "$a" == "$want" ]] && return 0
+  done
+  return 1
+}
+
+# A login safe to print: letters, digits, brackets (bot logins), underscore and dash.
+nz_login_shown() { printf '%s' "$1" | tr -cd 'A-Za-z0-9_[]-' | cut -c1-60; }
+
+# nz_commit_meta <path>: one TSV line for the newest commit that touches path:
+#   author_login \t committer_login \t true|false \t reason
+# Returns 0 when a commit exists, 4 when the path has none, 1 on error (NZ_ERR).
+# The newest commit is the one that last wrote the file. For a file that was only added, that is
+# the commit that added it; a later edit has to pass the same check.
+nz_commit_meta() {
+  local out err rc
+  NZ_ERR=""
+  command -v gh >/dev/null 2>&1 || { NZ_ERR="gh not found"; return 1; }
+  err="$(nz_tmp)" || { NZ_ERR="no temp file"; return 1; }
+  out="$(nz_limit 30 gh api "repos/$NZ_REPO/commits?path=$1&per_page=1" \
+    --jq 'if type=="array" and length>0 then .[0] | [(.author.login // ""), (.committer.login // ""), ((.commit.verification.verified // false)|tostring), (.commit.verification.reason // "unsigned")] | @tsv else empty end' 2>"$err")"
+  rc=$?
+  if [[ $rc -ne 0 ]]; then
+    NZ_ERR="$(head -c 200 "$err" 2>/dev/null | tr '\n' ' ')"
+    [[ -n "$NZ_ERR" ]] || NZ_ERR="gh exit $rc"
+    rm -f "$err"
+    return 1
+  fi
+  rm -f "$err"
+  [[ -n "$out" ]] || return 4
+  printf '%s\n' "$out" | head -n 1
+  return 0
+}
+
+# nz_reply_gate <path>: the newest commit on path may be acted on.
+# Success prints the author login. Failure prints a short reason and returns 1.
+# The author login has to be in reply_authors. When require_verified is not false, GitHub has to
+# report the commit verified, and the signature has to be that author's (committer login equals
+# the author) or GitHub's (committer login web-flow, the signature GitHub puts on a commit it
+# signs). Verification attests the committer, so a verified commit signed by someone else does
+# not count, even when the author email maps to an allowlisted login.
+nz_reply_gate() {
+  local meta rc login committer verified reason shown cfold afold
+  if [[ -z "$(nz_fold "${NZ_REPLY_AUTHORS:-}")" ]]; then
+    printf '%s\n' "reply_authors is not set"
+    return 1
+  fi
+  meta="$(nz_commit_meta "$1")"; rc=$?
+  if [[ $rc -ne 0 ]]; then
+    printf '%s\n' "could not check the commit that added it"
+    return 1
+  fi
+  IFS=$'\t' read -r login committer verified reason <<<"$meta"
+  if ! nz_author_allowed "$login"; then
+    shown="$(nz_login_shown "$login")"
+    if [[ -z "$shown" ]]; then printf '%s\n' "commit has no GitHub author"
+    else printf '%s\n' "author '$shown' is not in reply_authors"; fi
+    return 1
+  fi
+  if [[ "${NZ_REQUIRE_VERIFIED:-true}" != false ]]; then
+    case "$reason" in
+      unsigned|valid|invalid|unknown_key|expired_key|not_signing_key|bad_email|unverified_email|no_user|malformed_signature|unknown_signature_type|gpgverify_error|gpgverify_unavailable) ;;
+      *) reason="unverified" ;;
+    esac
+    if [[ "$verified" != true ]]; then
+      printf '%s\n' "commit is not verified (${reason:-unsigned})"
+      return 1
+    fi
+    afold="$(nz_fold "$login")"
+    cfold="$(nz_fold "$committer")"
+    if [[ "$cfold" != "$afold" && "$cfold" != "web-flow" ]]; then
+      shown="$(nz_login_shown "$committer")"
+      if [[ -z "$shown" ]]; then printf '%s\n' "commit is verified but has no GitHub committer"
+      else printf '%s\n' "commit is verified but committer '$shown' is not that author"; fi
+      return 1
+    fi
+  fi
+  printf '%s\n' "$(nz_login_shown "$login")"
+  return 0
 }
 
 # nz_put <path> <local file> <commit message>: creates path in the report repo through the contents
