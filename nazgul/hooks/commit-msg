@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# nazgul backstop (git commit-msg hook), installed by nazgul's install.sh.
+# nazgul backstop (git commit-msg hook), installed by nazgul's install.sh into <git common dir>/hooks/,
+# which every worktree of the repo shares. install.sh --unenroll removes it.
 # Warns an agent that commits on a branch with no nazgul session report yet. Never blocks a commit.
 scripts="__NAZGUL_SH__"
 [ -f "$scripts/check.sh" ] && bash "$scripts/check.sh" --commit-msg "$1"

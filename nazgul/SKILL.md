@@ -1,17 +1,17 @@
 ---
 name: nazgul
-description: Report every coding-agent session to a shared "report repo" on GitHub, then wait for a reply that says what to do next. Installs Stop hooks for Claude Code, Codex, Grok Build and Oh My Pi, plus a git commit-msg backstop, into a project repo. When a session ends, the agent pushes a numbered report (Changed, Why, Where, Left, Needs owner) into its own thread folder, and the hook polls that folder for about ten minutes for a reply whose action is continue, stop, or wait-for-owner. Use when the user wants agents to report finished work to a repo, wants to steer an agent through reply files, asks to install, configure or debug nazgul, or when a Stop hook asks the agent for a nazgul report.
+description: Report every coding-agent session to a shared "report repo" on GitHub, then wait for a reply that says what to do next. Installs user-level Stop hooks for Claude Code, Codex, Grok Build and Oh My Pi that act only in enrolled repos, plus a git commit-msg backstop, and writes nothing inside the repo, so every worktree of a bare repo is covered with no setup and git status stays empty. When a session ends, the agent pushes a numbered report (Changed, Why, Where, Left, Needs owner) into its own thread folder, and the hook polls that folder for about ten minutes for a reply whose action is continue, stop, or wait-for-owner. Use when the user wants agents to report finished work to a repo, wants to steer an agent through reply files, asks to install, configure or debug nazgul, or when a Stop hook asks the agent for a nazgul report.
 ---
 
 # nazgul
 
-nazgul turns the end of an agent session into a message in a git repo and a wait for an answer. A Stop hook asks the agent to write a short report and runs `report.sh`, which commits it to a report repo through the GitHub API. The hook then polls the session's thread for a reply: `continue` hands the agent its next instructions, `stop` ends the session, and `wait-for-owner` ends it with a note that the owner has to decide. The skill names no owner, repo or project. The report repo is chosen when `config.sh` runs, and it lives only in the user's config.
+nazgul turns the end of an agent session into a message in a git repo and a wait for an answer. A Stop hook asks the agent to write a short report and runs `report.sh`, which commits it to a report repo through the GitHub API. The hook then polls the session's thread for a reply: `continue` hands the agent its next instructions, `stop` ends the session, and `wait-for-owner` ends it with a note that the owner has to decide. The skill names no owner, repo or project. The report repo is chosen when `config.sh` runs, and it lives only in the user's config. Nothing is committed and nothing appears in `git status`: the skill, its config and its hooks live in the user's home folder, and a repo's state lives in its git common dir.
 
 TRIGGER when: the user wants agent sessions reported to a repo, wants to answer an agent through a file in a repo, asks to install, configure, test or debug nazgul, or a Stop hook reason starts with `nazgul:`.
 
 > **Stack assumed.** git, bash 3.2 or newer, `jq` 1.6 or newer, and `gh` (the GitHub CLI) logged in with push access to the report repo. Optional: `perl` puts a 30-second limit on each GitHub call; `gitleaks` replaces the built-in secret patterns. Hook support: Claude Code; Codex 0.129 or newer (hook trust); Grok Build 0.2.107 or newer (Stop hooks that continue the agent); Oh My Pi on Bun.
 
-> **Notation.** `<skill>` is this skill's folder inside the project, for example `.agents/skills/nazgul`. `<project>` is the project slug. `<thread-id>` is `YYYY-MM-DD_HHMM_<agent>_<branch>` in local time, with `-2`, `-3` and so on added when another session already holds that id.
+> **Notation.** `<skill>` is this skill's folder outside any repo, for example `~/.agents/skills/nazgul`. `<common>` is a repo's git common dir (`git rev-parse --git-common-dir`, resolved): the bare repo for its worktrees, `.git` for a plain clone. `<project>` is the project slug. `<thread-id>` is `YYYY-MM-DD_HHMM_<agent>_<branch>` in local time, with `-2`, `-3` and so on added when another session already holds that id.
 
 > **Precedence.** Project conventions in `AGENTS.md` or `CLAUDE.md` win. Never pick a report repo yourself: the user names it.
 
@@ -19,21 +19,26 @@ TRIGGER when: the user wants agent sessions reported to a repo, wants to answer 
 
 The agent runs these steps. Each one is safe to repeat.
 
-1. Put the skill inside the project repo, for example at `.agents/skills/nazgul/`. The hooks then find the scripts from the git root, so they work in every clone and worktree. A skill outside the repo still works, but the hooks then hold an absolute path that only exists on this machine.
-2. Ask the user which repo receives the reports (`owner/repo`) and which project slug to use (default: the repo folder name). Then run `bash <skill>/scripts/config.sh --repo <owner/repo> --project <slug>`. From a terminal, `config.sh` with no flags asks for each value. It writes `~/.config/nazgul/config` (mode 600) and `<repo root>/.nazgul`, and adds `.nazgul` to `.gitignore`. Add `--skip-paths <dir:dir>` for folders where nazgul must do nothing.
-3. Run `bash <skill>/scripts/install.sh`. It merges or writes the hook files below and prints the trust steps.
-4. Tell the user the trust steps it printed. Codex and Grok run no project hook until the user trusts it in the tool.
-5. Check with `bash <skill>/scripts/config.sh --show`; the last line says whether nazgul is on in this folder.
+1. Keep the skill outside every repo, for example at `~/.agents/skills/nazgul/`. Tools that read `~/.agents/skills` find it there; Claude Code reads `~/.claude/skills`, so link it: `ln -s ~/.agents/skills/nazgul ~/.claude/skills/nazgul`. `install.sh` refuses a skill that sits inside a work tree of the repo it enrolls.
+2. Ask the user which repo receives the reports (`owner/repo`). Then run `bash <skill>/scripts/config.sh --repo <owner/repo>`. From a terminal, `config.sh` with no flags asks. It writes only `~/.config/nazgul/config` (mode 600). Add `--skip-paths <dir:dir>` for folders where nazgul must do nothing.
+3. From any worktree of the repo, or from a bare repo itself, run `bash <skill>/scripts/install.sh --enroll`. Ask the user for a project slug first when the repo name is not what they want under `projects/`, and pass it as `--slug <slug>`. It adds the repo to the config, writes the user-level hooks below, and prints the trust steps.
+4. Tell the user the trust steps it printed. Codex runs a new hook only after the user trusts it; Grok runs user hooks only in folders the user trusts.
+5. Check with `bash <skill>/scripts/config.sh --show`. It lists the enrolled repos, and its last lines say whether nazgul is on in this folder and why not.
+
+`install.sh --unenroll` takes the repo out of the config and removes its commit-msg backstop and `<common>/nazgul/`, leaving the repo as it was before. When no enrolled repo is left, it also removes the user-level hooks.
 
 | File | What it does |
 |---|---|
-| `.claude/settings.json` | Claude Code Stop hook, `timeout` 660 s. Merged: other settings and hooks stay. |
-| `.codex/hooks.json` | Codex Stop hook, `timeout` 660 s (the default is 600). Merged. |
-| `.grok/hooks/nazgul.json` | Grok Build Stop hook, `timeout` 660 s, set explicitly. |
-| `.omp/hooks/post/nazgul.ts` | Oh My Pi `agent_end` handler that polls in the background. |
-| `<git hooks dir>/commit-msg` | Backstop that warns, never blocks. Not installed over another tool's commit-msg hook; `install.sh` prints the line to add instead. |
+| `~/.config/nazgul/config` | `[project "<common>"]` section that enrolls the repo |
+| `~/.claude/settings.json` | Claude Code Stop hook, `timeout` 660 s. Merged: other settings and hooks stay. |
+| `~/.codex/hooks.json` | Codex Stop hook, `timeout` 660 s (the default is 600). Merged. |
+| `~/.grok/hooks/nazgul.json` | Grok Build Stop hook, `timeout` 660 s, set explicitly. |
+| `~/.omp/agent/hooks/post/nazgul.ts` | Oh My Pi `agent_end` handler that polls in the background. |
+| `<common>/hooks/commit-msg` | Backstop that warns, never blocks. Skipped when `core.hooksPath` is set (husky and the like) or another tool's commit-msg hook is there. |
 
-With no config, inside a skip path, with `NAZGUL_OFF=1`, or outside a git repo, every script exits 0 and prints nothing.
+A tool's hook is written only when its home folder exists (`~/.claude`, `~/.codex`, `~/.grok`, `~/.omp`); `--only claude,codex,grok,omp,git` picks the set by hand. `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `GROK_HOME` and `PI_CODING_AGENT_DIR` move those folders.
+
+The hooks run in every session on the machine. In a repo that is not enrolled, inside a skip path, with no report repo, with `NAZGUL_OFF=1`, or outside a git work tree, every script exits 0 and prints nothing. Every worktree of an enrolled repo shares its git common dir, so a worktree made later is covered with no setup.
 
 ## Writing a report
 
@@ -133,16 +138,24 @@ A resumed session keeps its thread and writes the next number. A new session sta
 
 ## Configuration
 
-`~/.config/nazgul/config` (or `$XDG_CONFIG_HOME/nazgul/config`) and `<repo root>/.nazgul` hold one `key=value` per line. They are read line by line and never sourced.
+`~/.config/nazgul/config` (or `$XDG_CONFIG_HOME/nazgul/config`) holds `key=value` lines and one `[project "<common>"]` section per enrolled repo. It is read line by line and never sourced. Text after ` #` is a comment.
 
-| Key | File | Default | Meaning |
+```ini
+repo=<owner>/<repo>
+skip_paths=<dir>:<dir>
+
+[project "/abs/path/to/<name>.git"]
+slug=<slug>        # optional; default: the repo name without .git
+```
+
+| Key | Where | Default | Meaning |
 |---|---|---|---|
-| `repo` | user | none | Report repo, `owner/repo`. Without it nazgul is off. |
-| `skip_paths` | user | empty | Colon-separated folders where nazgul does nothing |
-| `max_rounds` | user or project | 3 | Continue rounds per session; the project value wins |
-| `poll_tries` | user | 5 | Checks per wait |
-| `poll_interval` | user | 120 | Seconds before each check |
-| `project` | project | repo folder name | Folder under `projects/` in the report repo |
+| `repo` | top | none | Report repo, `owner/repo`. Without it nazgul is off. |
+| `skip_paths` | top | empty | Colon-separated folders where nazgul does nothing, enrolled or not |
+| `max_rounds` | top or project | 3 | Continue rounds per session; the project value wins |
+| `poll_tries` | top | 5 | Checks per wait |
+| `poll_interval` | top | 120 | Seconds before each check |
+| `slug` | project | repo name | Folder under `projects/` in the report repo. `<name>.git`, `<name>/.git` and `<name>/.bare` all give `<name>`. |
 
 | Variable | Effect |
 |---|---|
@@ -153,23 +166,24 @@ A resumed session keeps its thread and writes the next number. A new session sta
 | `NAZGUL_SESSION` | Session id for `report.sh` and `poll.sh` when `--session` is not given |
 | `NAZGUL_AGENT` | Marks a process as an agent for the commit-msg backstop |
 
-Local state lives in `<git common dir>/nazgul/sessions/<session>.*` (thread, last message number, rounds, pending ask). It is never committed, and every worktree of the repo shares it. Delete a session's files to give it a new thread.
+Local state lives in `<common>/nazgul/sessions/<session>.*` (thread, last message number, rounds, pending ask). It is inside the git dir, so it is never committed, and every worktree of the repo shares it. Delete a session's files to give it a new thread.
 
 ## Tools
 
 | Tool | Hook | Continue | Notes |
 |---|---|---|---|
-| Claude Code | `Stop` in `.claude/settings.json` | `{"decision":"block","reason":…}` | Notes appear as `systemMessage`. Loads at the next session start. |
-| Codex | `Stop` in `.codex/hooks.json` | same JSON; the reason becomes a user message | Trust the project, then the hook (`/hooks`, press `t`, or "Trust all and continue"). A changed hook command needs trusting again; an edited `check.sh` does not. Codex has no loop cap of its own. |
-| Grok Build | `Stop` in `.grok/hooks/nazgul.json` | same JSON | `/hooks-trust` once per repo, then `/hooks` and `r`, or a new session. Grok also runs `.claude/settings.json` hooks, so the Claude hook stands down under Grok. Only `reason: end_turn` counts. Grok allows 8 continuations per turn, enough for 3 rounds. |
-| Oh My Pi | `agent_end` in `.omp/hooks/post/nazgul.ts` | none: `agent_end` cannot block | The hook starts `check.sh --background` detached. It pushes a built report and polls; a reply goes to `<git common dir>/nazgul/inbox/<session>.md`, which the hook shows and adds to the context while idle or at the next prompt. No trust step. Start omp from the repo root. |
+| Claude Code | `Stop` in `~/.claude/settings.json` | `{"decision":"block","reason":…}` | Notes appear as `systemMessage`. Loads at the next session start. |
+| Codex | `Stop` in `~/.codex/hooks.json` | same JSON; the reason becomes a user message | Trust the hook (`/hooks`, press `t`, or "Trust all and continue"). A changed hook command needs trusting again; an edited `check.sh` does not. Codex has no loop cap of its own. |
+| Grok Build | `Stop` in `~/.grok/hooks/nazgul.json` | same JSON | Grok runs user hooks only in trusted folders, and each worktree is its own folder: accept the trust prompt or run `/hooks-trust` once per worktree. Grok also runs `~/.claude/settings.json` hooks, so the Claude hook stands down under Grok. Only `reason: end_turn` counts. Grok allows 8 continuations per turn, enough for 3 rounds. |
+| Oh My Pi | `agent_end` in `~/.omp/agent/hooks/post/nazgul.ts` | none: `agent_end` cannot block | The hook starts `check.sh --background` detached. It pushes a built report and polls; a reply goes to `<common>/nazgul/inbox/<session>.md`, which the hook shows and adds to the context while idle or at the next prompt. No trust step. |
 
 The wait costs up to ten minutes at the end of every turn that ends in a report. For interactive work, start the agent with `NAZGUL_OFF=1`, add the folder to `skip_paths`, or lower `poll_tries`.
 
 ## Troubleshooting
 
-- **Nothing happens.** Run `config.sh --show`. When it says `off here`, the repo is missing, the folder is a skip path, or `NAZGUL_OFF=1` is set. When it says `on`, check that the tool trusted the hook (Codex `/hooks`, Grok `/hooks-trust`) and that the session started after `install.sh` ran.
+- **Nothing happens.** Run `config.sh --show` from the worktree. When it says `off`, it names the reason: the repo is not enrolled, there is no report repo, the folder is a skip path, or `NAZGUL_OFF=1` is set. When it says `on`, check that the tool trusted the hook (Codex `/hooks`, Grok `/hooks-trust` in this worktree) and that the session started after `install.sh` ran.
+- **The skill moved.** Run `install.sh --enroll` again from the new place; it rewrites the hook paths. Until then the hooks find no `check.sh` and do nothing.
 - **`could not read the report repo`.** Run `gh auth status` and `gh api repos/<owner>/<repo>`. `config.sh` also reports whether the login can push.
 - **`refusing to push: possible secret`.** The report holds something that looks like a key or token. Remove it; on a false hit, reword the line.
 - **A built report instead of the agent's own.** The agent ended its turn without running the command from the ask, or its push failed. The hook pushes the built report on the next Stop so the thread still gets a message.
-- **Run the checks.** `bash <skill>/tests/run.sh` covers every script against a fake `gh` and needs no network.
+- **Run the checks.** `bash <skill>/tests/run.sh` covers every script against a fake `gh` in a temp home folder and needs no network.

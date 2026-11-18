@@ -7,7 +7,8 @@
 #   check.sh --commit-msg <file>                             git commit-msg backstop; only warns
 #
 # One Stop, step by step:
-#   1. Off here (no config, skip path, NAZGUL_OFF=1, not a git repo): exit 0, print nothing.
+#   1. Off here (repo not enrolled, no report repo, skip path, NAZGUL_OFF=1, not a work tree): exit 0,
+#      print nothing. The hooks are user-level and run in every repo, so this is the common case.
 #   2. stop_hook_active is set but nazgul did not cause the continuation: exit 0 (another hook did).
 #   3. No report for this stop yet: a tool that can block gets a block whose reason asks the agent to
 #      run report.sh with this session's id. The next Stop finds the report, or, when the agent did
@@ -70,7 +71,7 @@ fi
 command -v jq >/dev/null 2>&1 || exit 0
 jget() { printf '%s' "$payload" | jq -r "$1 // empty" 2>/dev/null; }
 
-# Grok also runs the hooks in .claude/settings.json; its own .grok/hooks file does the work there.
+# Grok also runs the hooks in ~/.claude/settings.json; its own ~/.grok/hooks file does the work there.
 [[ "$NZ_AGENT" == claude && -n "${GROK_HOOK_EVENT:-}" ]] && exit 0
 # Grok fires Stop again when the session closes; only a real end of turn counts.
 if [[ "$NZ_AGENT" == grok ]]; then

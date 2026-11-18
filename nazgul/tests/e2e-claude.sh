@@ -2,7 +2,8 @@
 # nazgul end-to-end with a real headless Claude Code session and the fake gh.
 # Usage: bash tests/e2e-claude.sh [model]      (default model: haiku; spends a few cents of tokens)
 # Checks: the Stop hook asks for a report and Claude pushes 001; a continue reply (002) makes Claude
-# resume and do what it says; the next report is 003; a stop reply (004) ends the session.
+# resume and do what it says; the next report is 003; a stop reply (004) ends the session. The skill
+# sits outside the repo and the session runs in a worktree of a bare repo, as in real use.
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 skill_src="$(dirname "$here")"
@@ -17,14 +18,18 @@ export NAZGUL_POLL_INTERVAL=3 NAZGUL_POLL_TRIES=10
 mkdir -p "$FAKE_GH_ROOT/owner/reports"
 printf 'repo=owner/reports\n' >"$NAZGUL_CONFIG"
 
-P="$T/widget"
-git init -q -b main "$P"
-mkdir -p "$P/.agents/skills"
-cp -R "$skill_src" "$P/.agents/skills/nazgul"; rm -rf "$P/.agents/skills/nazgul/tests"
-printf 'widget\n' >"$P/README.md"
-git -C "$P" add -A && git -C "$P" -c user.name=t -c user.email=t@example.invalid commit -qm init
-git -C "$P" remote add origin https://github.com/owner/widget.git
-bash "$P/.agents/skills/nazgul/scripts/install.sh" --project-dir "$P" --only claude >/dev/null
+# The skill outside the repo; a bare repo with one worktree, the session runs in the worktree.
+mkdir -p "$T/skills" && cp -R "$skill_src" "$T/skills/nazgul" && rm -rf "$T/skills/nazgul/tests"
+git init -q -b main "$T/src"
+printf 'widget\n' >"$T/src/README.md"
+git -C "$T/src" add -A && git -C "$T/src" -c user.name=t -c user.email=t@example.invalid commit -qm init
+git clone -q --bare "$T/src" "$T/widget.git"
+git -C "$T/widget.git" remote set-url origin https://github.com/owner/widget.git
+git -C "$T/widget.git" worktree add -q "$T/wt" main 2>/dev/null
+P="$T/wt"
+# The user-level Claude settings go to a temp folder, passed to claude with --settings, so the real
+# ~/.claude is neither read for hooks nor written.
+CLAUDE_CONFIG_DIR="$T/claude-home" bash "$T/skills/nazgul/scripts/install.sh" --enroll --only claude,git --cwd "$P" >/dev/null
 THREADS="$FAKE_GH_ROOT/owner/reports/projects/widget/threads"
 
 # The responder: continue after 001, stop after 003.
@@ -41,7 +46,7 @@ responder=$!
 start=$(date +%s)
 (cd "$P" && env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p \
   "Create a file hello.txt containing hi and commit it with the message 'add hello'. Then end your turn." \
-  --model "$model" --setting-sources project --permission-mode acceptEdits \
+  --model "$model" --setting-sources project --settings "$T/claude-home/settings.json" --permission-mode acceptEdits \
   --allowedTools "Bash,Write,Read,Edit" --output-format json >"$T/out.json" 2>"$T/err.txt")
 rc=$?
 kill "$responder" 2>/dev/null; wait "$responder" 2>/dev/null
@@ -56,6 +61,7 @@ ok "Claude resumed with the reply: continued.txt exists" '[[ "$(tr -d "[:space:]
 ok "003 pushed after the continue round" '[[ -f "$d/003_claude.md" ]]'
 ok "nothing after the stop reply" '[[ ! -f "$d/005_claude.md" ]]'
 ok "hello.txt committed" 'git -C "$P" log --format=%s | grep -q "add hello"'
+ok "nothing from nazgul in git status" '[[ -z "$(git -C "$P" status --porcelain --ignored | grep -v -e hello.txt -e continued.txt)" ]]'
 echo "--- 001"; cat "$d/001_claude.md" 2>/dev/null
 echo "--- 003"; cat "$d/003_claude.md" 2>/dev/null
 echo "--- result"; jq -r '.result // .' "$T/out.json" 2>/dev/null | head -n 20

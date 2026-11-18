@@ -2,6 +2,8 @@
 
 Agent sessions that report to a repo and wait for orders. When a Claude Code, Codex, Grok Build or Oh My Pi session ends, a Stop hook has the agent commit a short report to a "report repo" on GitHub, then polls the session's thread in that repo for a reply. A reply can tell the agent to continue with new instructions, to stop, or to wait for the owner. Nothing in the skill names an owner, repo or project; you pick the report repo when you run `config.sh`.
 
+nazgul leaves no trace in your repos. The skill, its config and its hooks live in your home folder; a repo is turned on by enrolling it, and its state sits in its git dir. Nothing is committed, `git status` stays empty, and every worktree of an enrolled bare repo is covered, including worktrees you add later.
+
 ## Requirements
 
 - git, bash 3.2 or newer, `jq` 1.6 or newer.
@@ -11,14 +13,16 @@ Agent sessions that report to a repo and wait for orders. When a Claude Code, Co
 
 ## Install
 
-From the project repo, with the skill at `.agents/skills/nazgul/` (any folder inside the repo works):
+Put the skill outside your repos, for example at `~/.agents/skills/nazgul/` (for Claude Code to list it as a skill, also link it into `~/.claude/skills/`). Then, from any worktree of the repo, or from the bare repo itself:
 
 ```sh
-bash .agents/skills/nazgul/scripts/config.sh    # asks for the report repo and the project slug
-bash .agents/skills/nazgul/scripts/install.sh   # writes the hooks, prints the trust steps
+bash ~/.agents/skills/nazgul/scripts/config.sh             # once: asks for the report repo
+bash ~/.agents/skills/nazgul/scripts/install.sh --enroll   # per repo: enrolls it, writes the hooks
 ```
 
-Then trust the hooks where the tool asks for it: in Codex, run `/hooks` and press `t` (or choose "Trust all and continue" at startup); in Grok, run `/hooks-trust`. Claude Code and Oh My Pi load the hooks at the next session start.
+`install.sh` writes user-level hooks for each tool you have (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.grok/hooks/nazgul.json`, `~/.omp/agent/hooks/post/nazgul.ts`) and a commit-msg backstop into the repo's git dir. The hooks run everywhere but do nothing outside enrolled repos. Then trust the hooks where the tool asks: in Codex, run `/hooks` and press `t` (or choose "Trust all and continue"); in Grok, accept the folder trust prompt or run `/hooks-trust` in each worktree. Claude Code and Oh My Pi load the hooks at the next session start.
+
+`install.sh --unenroll` puts the repo back exactly as it was; after the last repo it removes the user-level hooks too. `config.sh --show` lists the enrolled repos.
 
 ## What a session does
 
@@ -34,20 +38,20 @@ Oh My Pi cannot block at the end of a turn, so there nazgul pushes a report buil
 | Path | Role |
 |---|---|
 | `SKILL.md` | Instructions for the agent: setup, report and reply formats, rules, troubleshooting |
-| `scripts/config.sh` | Sets the report repo, project slug and skip paths |
-| `scripts/install.sh` | Writes or merges the hook files into the project |
+| `scripts/config.sh` | Sets the report repo and skip paths; `--show` lists enrolled repos |
+| `scripts/install.sh` | Enrolls or unenrolls a repo; writes or removes the user-level hooks |
 | `scripts/report.sh` | Pushes the next numbered message in the session's thread |
 | `scripts/poll.sh` | Looks for a reply in the session's thread |
 | `scripts/check.sh` | Stop-hook logic: report, poll, then continue or end |
 | `scripts/lib.sh` | Shared helpers: config, git context, GitHub calls, secret scan |
-| `hooks/claude.settings.json` | Template for `.claude/settings.json` |
-| `hooks/codex.hooks.json` | Template for `.codex/hooks.json` |
-| `hooks/grok.hooks.json` | Template for `.grok/hooks/nazgul.json` |
-| `hooks/omp/post/nazgul.ts` | Template for `.omp/hooks/post/nazgul.ts` |
-| `hooks/commit-msg` | Git hook that warns an agent committing on a branch with no report |
+| `hooks/claude.settings.json` | Template for `~/.claude/settings.json` |
+| `hooks/codex.hooks.json` | Template for `~/.codex/hooks.json` |
+| `hooks/grok.hooks.json` | Template for `~/.grok/hooks/nazgul.json` |
+| `hooks/omp/post/nazgul.ts` | Template for `~/.omp/agent/hooks/post/nazgul.ts` |
+| `hooks/commit-msg` | Git hook, in the repo's git dir, that warns an agent committing on a branch with no report |
 | `tests/run.sh` | Every script against a fake `gh`; no network |
-| `tests/e2e-claude.sh` | One real headless Claude Code session against the fake `gh` |
+| `tests/e2e-claude.sh` | One real headless Claude Code session, in a worktree of a bare repo, against the fake `gh` |
 
 ## Safety
 
-The scripts only add files: GitHub refuses a contents `PUT` without a `sha` for a path that exists, and nazgul never sends one. They write only under the configured project and read only the session's own thread. They use the `gh` login already on the machine, never clone, and never put a token in a URL. A network or auth failure prints a warning and lets the session end.
+The scripts only add files: GitHub refuses a contents `PUT` without a `sha` for a path that exists, and nazgul never sends one. They write only under the configured project and read only the session's own thread. They use the `gh` login already on the machine, never clone, and never put a token in a URL. A network or auth failure prints a warning and lets the session end. In your repos nazgul writes only inside the git dir (`hooks/commit-msg` and `nazgul/`), never in a work tree, `.gitignore` or `info/exclude`.

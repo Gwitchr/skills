@@ -1,17 +1,20 @@
 # nazgul shared helpers, sourced by the other scripts in this folder. Not meant to be run.
 # bash 3.2 compatible. Needs git, jq and gh (already authenticated); perl is optional (timeouts).
 #
-# Config, read line by line and never sourced:
+# Config, one file per user, read line by line and never sourced:
 #   ${NAZGUL_CONFIG:-${XDG_CONFIG_HOME:-~/.config}/nazgul/config}
-#       repo=<owner/repo>   the report repo (NAZGUL_REPO overrides it)
-#       skip_paths=<dir:dir> folders where nazgul does nothing
-#       max_rounds=<n>      continue rounds per session, default 3
-#       poll_tries=<n>      default 5 (NAZGUL_POLL_TRIES overrides it)
-#       poll_interval=<s>   default 120 (NAZGUL_POLL_INTERVAL overrides it)
-#   <project root>/.nazgul
-#       project=<slug>      default: the repo folder name
-#       max_rounds=<n>      overrides the user value
-# Local state lives in <git common dir>/nazgul/, so it is never committed and every worktree shares it.
+#       repo=<owner/repo>       the report repo (NAZGUL_REPO overrides it)
+#       skip_paths=<dir:dir>    folders where nazgul does nothing, even in an enrolled repo
+#       max_rounds=<n>          continue rounds per session, default 3
+#       poll_tries=<n>          default 5 (NAZGUL_POLL_TRIES overrides it)
+#       poll_interval=<s>       default 120 (NAZGUL_POLL_INTERVAL overrides it)
+#
+#       [project "/abs/path/to/repo.git"]   one section per enrolled repo, keyed by its git common dir
+#       slug=<slug>             optional; default: the repo name without .git
+#       max_rounds=<n>          optional; overrides the value above for this repo
+# A repo with no section is not enrolled, and every script exits at once there. Every worktree of a
+# repo shares its git common dir, so one section covers all of them.
+# Local state lives in <git common dir>/nazgul/: never in a work tree, shared by every worktree.
 
 NZ_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 NZ_SKILL="$(dirname "$NZ_SCRIPTS")"
@@ -21,20 +24,83 @@ NZ_ERR=""
 
 nz_warn() { printf 'nazgul: %s\n' "$*" >&2; }
 
-# nz_kv <file> <key>: prints the last value of key=<value> in file; returns 1 when absent.
-nz_kv() {
-  local file="$1" key="$2" line val="" found=1
-  [[ -f "$file" ]] || return 1
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    line="${line#"${line%%[![:space:]]*}"}"
-    [[ "$line" == "$key="* ]] || continue
-    val="${line#*=}"
-    val="${val%"${val##*[![:space:]]}"}"
-    val="${val%\"}"; val="${val#\"}"; val="${val%\'}"; val="${val#\'}"
-    found=0
-  done <"$file"
-  [[ $found -eq 0 ]] && printf '%s' "$val"
-  return $found
+# The awk below reads section headers: [project "<path>"] gives <path>; any other [header] gives \001,
+# which matches no section anyone asks for. Lines before the first header are the top level ("").
+NZ_AWK_HEADER='
+  function header(line,   s) {
+    s = line
+    if (s ~ /^[ \t]*\[project "[^"]*"\][ \t]*$/) { sub(/^[ \t]*\[project "/, "", s); sub(/"\][ \t]*$/, "", s); return s }
+    return "\001"
+  }
+  function is_header(line) { return line ~ /^[ \t]*\[/ }'
+
+# nz_cfg <section> <key>: the last value of key in that section of the user config ("" is the top
+# level). Inline comments after whitespace and surrounding quotes are dropped. Returns 1 when absent.
+nz_cfg() {
+  [[ -f "$NZ_USER_CONFIG" ]] || return 1
+  NZ_A_SEC="$1" NZ_A_KEY="$2" awk "$NZ_AWK_HEADER"'
+    BEGIN { want = ENVIRON["NZ_A_SEC"]; key = ENVIRON["NZ_A_KEY"]; cur = "" }
+    { line = $0; sub(/\r$/, "", line) }
+    is_header(line) { cur = header(line); next }
+    cur == want && line ~ ("^[ \t]*" key "[ \t]*=") {
+      v = substr(line, index(line, "=") + 1)
+      sub(/[ \t]+#.*$/, "", v); gsub(/^[ \t]+|[ \t]+$/, "", v)
+      if (v ~ /^".*"$/ || v ~ /^\047.*\047$/) v = substr(v, 2, length(v) - 2)
+      val = v; found = 1
+    }
+    END { if (!found) exit 1; printf "%s", val }' "$NZ_USER_CONFIG"
+}
+
+# nz_projects: the path of every [project "<path>"] section, one per line.
+nz_projects() {
+  [[ -f "$NZ_USER_CONFIG" ]] || return 0
+  awk "$NZ_AWK_HEADER"'{ line = $0; sub(/\r$/, "", line) } is_header(line) { s = header(line); if (s != "\001") print s }' "$NZ_USER_CONFIG"
+}
+
+nz_enrolled() { nz_projects | grep -qxF -- "$1"; }
+
+# nz_cfg_edit <mode> <section> [key] [value]: rewrites the user config (mode 600), keeping every
+# other line as it was.
+#   set    key=value in the section; creates the section when missing
+#   unset  drops key from the section
+#   add    creates the section when missing
+#   drop   removes the section and the blank lines in front of it
+nz_cfg_edit() {
+  local f="$NZ_USER_CONFIG" tmp
+  mkdir -p "$(dirname "$f")" || return 1
+  tmp="$(nz_tmp)" || return 1
+  { [[ -f "$f" ]] && cat "$f"; } | NZ_A_MODE="$1" NZ_A_SEC="$2" NZ_A_KEY="${3:-}" NZ_A_VAL="${4:-}" awk "$NZ_AWK_HEADER"'
+    function flush() { printf "%s", blanks; blanks = "" }
+    function put() { if (mode == "set" && !done) print key "=" val; done = 1 }
+    BEGIN {
+      mode = ENVIRON["NZ_A_MODE"]; want = ENVIRON["NZ_A_SEC"]; key = ENVIRON["NZ_A_KEY"]; val = ENVIRON["NZ_A_VAL"]
+      cur = ""; seen = (want == ""); blanks = ""
+    }
+    {
+      line = $0; sub(/\r$/, "", line)
+      if (is_header(line)) {
+        nxt = header(line)
+        if (cur == want && mode == "set") put()
+        if (nxt == want) { seen = 1; if (mode == "drop") { blanks = ""; cur = nxt; next } }
+        flush(); cur = nxt; print $0; next
+      }
+      if (cur == want && mode == "drop" && want != "") { if (line ~ /^[ \t]*$/) blanks = blanks $0 "\n"; next }
+      if (line ~ /^[ \t]*$/) { blanks = blanks $0 "\n"; next }
+      if (cur == want && (mode == "set" || mode == "unset") && line ~ ("^[ \t]*" key "[ \t]*=")) {
+        flush(); put(); next
+      }
+      flush(); print $0
+    }
+    END {
+      if (mode == "drop" && cur == want) blanks = ""
+      if ((mode == "set" || mode == "add") && !seen) {
+        flush(); if (NR > 0) print ""
+        print "[project \"" want "\"]"; put()
+      } else if (mode == "set" && cur == want) { put(); flush() }
+      else flush()
+    }' >"$tmp" || { rm -f "$tmp"; return 1; }
+  if [[ -f "$f" ]]; then cat "$tmp" >"$f" && rm -f "$tmp" && chmod 600 "$f"   # in place: keeps a symlink
+  else chmod 600 "$tmp" && mv "$tmp" "$f"; fi
 }
 
 nz_num() { if [[ "$1" =~ ^[0-9]+$ ]]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
@@ -84,36 +150,51 @@ nz_origin() {
   NZ_ORIGIN="$path"; NZ_WEB="https://$host/$path"
 }
 
+# nz_common <dir>: the physical path of the git common dir for dir (a work tree or a bare repo).
+nz_common() {
+  local d="$1" top c
+  top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" && [[ -n "$top" ]] && d="$top"
+  c="$(git -C "$d" rev-parse --git-common-dir 2>/dev/null)" || return 1
+  (cd "$d" && cd "$c" 2>/dev/null && pwd -P)
+}
+
+# nz_default_slug <common dir>: the repo name. /x/gadget.git -> gadget; /x/widget/.git -> widget;
+# /x/gadget/.bare -> gadget.
+nz_default_slug() {
+  local v
+  v="$(basename "$1")"
+  case "$v" in .*) v="$(basename "$(dirname "$1")")" ;; esac
+  nz_slug "${v%.git}"
+}
+
 # nz_load [dir]: loads config and project context for dir. Returns 1 and prints nothing when nazgul
-# is off there: NAZGUL_OFF=1, no report repo, dir under a skip path, or dir outside a git work tree.
+# is off there: NAZGUL_OFF=1, no config, dir outside a git work tree, repo not enrolled, no report
+# repo, or dir under a skip path. Cheap on purpose: the hooks are user-level and run in every repo.
 nz_load() {
-  local dir="${1:-$PWD}" re='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' common v
+  local dir="${1:-$PWD}" re='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' v
   [[ "${NAZGUL_OFF:-}" == 1 ]] && return 1
-  NZ_REPO="${NAZGUL_REPO:-$(nz_kv "$NZ_USER_CONFIG" repo)}"
-  [[ "$NZ_REPO" =~ $re ]] || return 1
-  NZ_SKIP="$(nz_kv "$NZ_USER_CONFIG" skip_paths)"
+  [[ -f "$NZ_USER_CONFIG" ]] || return 1
   dir="$(cd "$dir" 2>/dev/null && pwd -P)" || return 1
-  nz_skipped "$dir" && return 1
   NZ_ROOT="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 1
   [[ -n "$NZ_ROOT" ]] || return 1
-  common="$(cd "$NZ_ROOT" && git rev-parse --git-common-dir 2>/dev/null)" || return 1
-  common="$(cd "$NZ_ROOT" && cd "$common" 2>/dev/null && pwd -P)" || return 1
-  NZ_STATE="$common/nazgul"
-  v="$(nz_kv "$NZ_ROOT/.nazgul" project)"
-  if [[ -z "$v" ]]; then
-    v="$(basename "$common")"
-    [[ "$v" == .git ]] && v="$(basename "$(dirname "$common")")"
-    v="${v%.git}"
-  fi
+  NZ_COMMON="$(nz_common "$NZ_ROOT")" || return 1
+  nz_enrolled "$NZ_COMMON" || return 1
+  NZ_REPO="${NAZGUL_REPO:-$(nz_cfg "" repo)}"
+  [[ "$NZ_REPO" =~ $re ]] || return 1
+  NZ_SKIP="$(nz_cfg "" skip_paths)"
+  nz_skipped "$dir" && return 1
+  NZ_STATE="$NZ_COMMON/nazgul"
+  v="$(nz_cfg "$NZ_COMMON" slug)"
+  [[ -n "$v" ]] || v="$(nz_default_slug "$NZ_COMMON")"
   NZ_PROJECT="$(nz_slug "$v")"
   [[ -n "$NZ_PROJECT" ]] || return 1
   NZ_BRANCH="$(git -C "$NZ_ROOT" symbolic-ref --quiet --short HEAD 2>/dev/null)" || NZ_BRANCH="detached"
   NZ_BRANCH_SLUG="$(nz_slug "$NZ_BRANCH" 40)"
   [[ -n "$NZ_BRANCH_SLUG" ]] || NZ_BRANCH_SLUG="branch"
-  v="$(nz_kv "$NZ_ROOT/.nazgul" max_rounds || nz_kv "$NZ_USER_CONFIG" max_rounds)"
+  v="$(nz_cfg "$NZ_COMMON" max_rounds || nz_cfg "" max_rounds)"
   NZ_MAX_ROUNDS="$(nz_num "$v" 3)"
-  NZ_POLL_TRIES="$(nz_num "${NAZGUL_POLL_TRIES:-$(nz_kv "$NZ_USER_CONFIG" poll_tries)}" 5)"
-  NZ_POLL_INTERVAL="$(nz_num "${NAZGUL_POLL_INTERVAL:-$(nz_kv "$NZ_USER_CONFIG" poll_interval)}" 120)"
+  NZ_POLL_TRIES="$(nz_num "${NAZGUL_POLL_TRIES:-$(nz_cfg "" poll_tries)}" 5)"
+  NZ_POLL_INTERVAL="$(nz_num "${NAZGUL_POLL_INTERVAL:-$(nz_cfg "" poll_interval)}" 120)"
   nz_origin
   return 0
 }

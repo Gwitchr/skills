@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"__NAZGUL_SH__/check.sh\" --agent grok",
+            "command": "[ ! -f \"__NAZGUL_SH__/check.sh\" ] || bash \"__NAZGUL_SH__/check.sh\" --agent grok",
             "timeout": 660
           }
         ]

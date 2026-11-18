@@ -1,6 +1,6 @@
-// nazgul for Oh My Pi, installed by nazgul's install.sh as .omp/hooks/post/nazgul.ts.
-// omp loads files in .omp/hooks/post/ as extensions and only reads .omp/ in the directory it starts
-// in, so start omp from the repo root.
+// nazgul for Oh My Pi, installed by nazgul's install.sh as ~/.omp/agent/hooks/post/nazgul.ts.
+// omp loads every file in that folder as an extension in every session. check.sh exits at once in a
+// repo that is not enrolled, so outside enrolled repos this hook does nothing.
 //
 // agent_end cannot block, so this hook starts check.sh detached. check.sh pushes a report built from
 // git and the agent's last message, then polls the session's thread in the background. A reply goes
@@ -11,8 +11,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-// nazgul's scripts folder, relative to the repo root or absolute.
-const SCRIPTS = "__NAZGUL_PATH__";
+// nazgul's scripts folder, an absolute path filled in by install.sh.
+const SCRIPTS = "__NAZGUL_SH__";
 
 type Message = { role?: string; content?: unknown };
 
@@ -82,7 +82,7 @@ export default function nazgul(pi: ExtensionAPI): void {
 	pi.on("agent_end", async (event, ctx) => {
 		if (event.willContinue || ctx.agent.kind !== "main") return;
 		if (!(await locate(ctx)) || !root) return;
-		const script = path.resolve(root, SCRIPTS, "check.sh");
+		const script = path.join(SCRIPTS, "check.sh");
 		const inbox = inboxPath(ctx);
 		if (!inbox || !fs.existsSync(script)) return;
 		const payload = path.join(os.tmpdir(), `nazgul-omp-${process.pid}-${Date.now()}.json`);
