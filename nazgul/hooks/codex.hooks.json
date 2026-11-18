@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"__NAZGUL_SH__/check.sh\" --agent codex",
+            "timeout": 660,
+            "statusMessage": "nazgul: reporting and waiting for a reply"
+          }
+        ]
+      }
+    ]
+  }
+}

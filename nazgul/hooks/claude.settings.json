@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"__NAZGUL_SH__/check.sh\" --agent claude",
+            "timeout": 660
+          }
+        ]
+      }
+    ]
+  }
+}

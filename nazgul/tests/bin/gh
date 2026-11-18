@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Fake gh for nazgul tests: emulates the GitHub contents API on a local folder.
+#   FAKE_GH_ROOT  folder that stands in for the report repo (one level per owner/repo)
+#   FAKE_GH_FAIL  when set, every call fails like a network error
+#   FAKE_GH_LOG   append one line per call
+set -u
+[[ -n "${FAKE_GH_LOG:-}" ]] && printf '%s\n' "$*" >>"$FAKE_GH_LOG"
+[[ "${1:-}" == api ]] || { echo "fake gh: only 'api' is supported" >&2; exit 1; }
+shift
+method=GET; accept=""; input=""; jqexpr=""; endpoint=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -X) method="$2"; shift 2 ;;
+    -H) accept="$2"; shift 2 ;;
+    --input) input="$2"; shift 2 ;;
+    --jq) jqexpr="$2"; shift 2 ;;
+    -*) shift ;;
+    *) endpoint="$1"; shift ;;
+  esac
+done
+if [[ -n "${FAKE_GH_FAIL:-}" ]]; then echo "error connecting to api.github.com" >&2; exit 1; fi
+out() { if [[ -n "$jqexpr" ]]; then jq -r "$jqexpr"; else cat; fi; }
+notfound() { echo '{"message":"Not Found"}'; echo "gh: Not Found (HTTP 404)" >&2; exit 1; }
+
+if [[ "$endpoint" =~ ^repos/([^/]+/[^/]+)$ ]]; then
+  [[ -d "$FAKE_GH_ROOT/${BASH_REMATCH[1]}" ]] || notfound
+  echo '{"full_name":"x","permissions":{"push":true}}' | out; exit 0
+fi
+[[ "$endpoint" =~ ^repos/([^/]+/[^/]+)/contents/(.*)$ ]] || notfound
+repo="$FAKE_GH_ROOT/${BASH_REMATCH[1]}"; rel="${BASH_REMATCH[2]}"; p="$repo/$rel"
+[[ -d "$repo" ]] || notfound
+case "$method" in
+  GET)
+    if [[ -d "$p" ]]; then
+      for f in "$p"/*; do
+        [[ -e "$f" ]] || continue
+        t=file; [[ -d "$f" ]] && t=dir
+        jq -n --arg n "$(basename "$f")" --arg t "$t" --arg path "$rel/$(basename "$f")" '{name:$n,type:$t,path:$path}'
+      done | jq -s . | out
+    elif [[ -f "$p" ]]; then
+      if [[ "$accept" == *raw* ]]; then cat "$p"; else
+        jq -n --arg c "$(base64 <"$p" | tr -d '\n')" --arg n "$(basename "$p")" '{type:"file",name:$n,content:$c}' | out
+      fi
+    else notfound; fi ;;
+  PUT)
+    body="$(cat "${input/#-//dev/stdin}")"
+    if [[ -e "$p" ]]; then
+      echo '{"message":"Invalid request.\n\n\"sha\" wasn'"'"'t supplied."}'
+      echo "gh: Invalid request. (HTTP 422)" >&2; exit 1
+    fi
+    [[ "$(printf '%s' "$body" | jq -r 'has("sha")')" == false ]] || { echo "fake gh: sha sent" >&2; exit 1; }
+    mkdir -p "$(dirname "$p")"
+    printf '%s' "$body" | jq -r .content | base64 -d >"$p" 2>/dev/null || printf '%s' "$body" | jq -r .content | base64 -D >"$p"
+    printf '%s\t%s\n' "$rel" "$(printf '%s' "$body" | jq -r .message)" >>"$FAKE_GH_ROOT/commits.log"
+    jq -n --arg path "$rel" '{content:{path:$path}}' | out ;;
+  *) echo "fake gh: unsupported method $method" >&2; exit 1 ;;
+esac
