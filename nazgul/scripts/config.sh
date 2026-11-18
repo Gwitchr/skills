@@ -1,32 +1,37 @@
 #!/usr/bin/env bash
-# nazgul config.sh: choose the report repo and the folders nazgul skips. Enrolling a repo is
-# install.sh --enroll.
+# nazgul config.sh: choose the report repo, who may reply, and the folders nazgul skips.
+# Enrolling a repo is install.sh --enroll.
 #
 #   config.sh [--repo <owner/repo>] [--skip-paths <dir:dir>] [--max-rounds N]
+#             [--auto-continue true|false] [--reply-authors <logins>]
+#             [--require-verified true|false]
 #   config.sh --show [--cwd <dir>]
 #
-# From a terminal it asks for every value not given as a flag, showing the current one as the
-# default. Without a terminal it uses the flags and the current values, and fails when no report
-# repo is known. Writes only ~/.config/nazgul/config (mode 600); the [project] sections and any
-# other line in it are kept. Nothing is written inside a repo.
-# --show prints the settings, every enrolled repo, and whether nazgul is on in --cwd.
+# From a terminal it asks for the report repo and the skip paths when those flags are absent.
+# Reply settings change only when their flags are passed. Without a terminal it uses the flags
+# and the current values, and fails when no report repo is known. Writes only
+# ~/.config/nazgul/config (mode 600); the [project] sections and any other line in it are kept.
+# Nothing is written inside a repo. --show prints the settings and whether nazgul is on in --cwd.
 set -u
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
 
-usage() { sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
-repo=""; skip=""; rounds=""; cwd="$PWD"; show=0
-set_repo=0; set_skip=0; set_rounds=0
+repo=""; skip=""; rounds=""; authors=""; auto=""; verified=""; cwd="$PWD"; show=0
+set_repo=0; set_skip=0; set_rounds=0; set_authors=0; set_auto=0; set_verified=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help) usage; exit 0 ;;
     --show) show=1; shift ;;
-    --repo|--skip-paths|--max-rounds|--cwd)
+    --repo|--skip-paths|--max-rounds|--auto-continue|--reply-authors|--require-verified|--cwd)
       [[ $# -ge 2 ]] || { nz_warn "$1 needs a value"; exit 2; }
       case "$1" in
         --repo) repo="$2"; set_repo=1 ;;
         --skip-paths) skip="$2"; set_skip=1 ;;
         --max-rounds) rounds="$2"; set_rounds=1 ;;
+        --auto-continue) auto="$2"; set_auto=1 ;;
+        --reply-authors) authors="$2"; set_authors=1 ;;
+        --require-verified) verified="$2"; set_verified=1 ;;
         --cwd) cwd="$2" ;;
       esac
       shift 2 ;;
@@ -38,6 +43,9 @@ if [[ $show -eq 1 ]]; then
   printf 'user config:   %s%s\n' "$NZ_USER_CONFIG" "$([[ -f "$NZ_USER_CONFIG" ]] || printf ' (missing)')"
   printf 'report repo:   %s%s\n' "${NAZGUL_REPO:-$(nz_cfg "" repo)}" "$([[ -n "${NAZGUL_REPO:-}" ]] && printf ' (from NAZGUL_REPO)')"
   printf 'skip paths:    %s\n' "$(nz_cfg "" skip_paths)"
+  printf 'auto continue: %s\n' "$([[ "$(nz_cfg "" auto_continue)" == true ]] && printf true || printf false)"
+  printf 'reply authors: %s\n' "$(nz_cfg "" reply_authors)"
+  printf 'require verified: %s\n' "$([[ "$(nz_cfg "" require_verified)" == false ]] && printf false || printf true)"
   printf 'enrolled:\n'
   n=0
   while IFS= read -r p; do
@@ -54,6 +62,9 @@ if [[ $show -eq 1 ]]; then
     printf '  branch:      %s\n' "$NZ_BRANCH"
     printf '  max rounds:  %s\n' "$NZ_MAX_ROUNDS"
     printf '  poll:        %s tries, %ss apart\n' "$NZ_POLL_TRIES" "$NZ_POLL_INTERVAL"
+    printf '  auto continue: %s\n' "$NZ_AUTO_CONTINUE"
+    printf '  reply authors: %s\n' "${NZ_REPLY_AUTHORS:-"(none; replies are not acted on)"}"
+    printf '  require verified: %s\n' "$NZ_REQUIRE_VERIFIED"
     printf '  state:       %s\n' "$NZ_STATE"
   else
     if [[ "${NAZGUL_OFF:-}" == 1 ]]; then why="NAZGUL_OFF=1"
@@ -90,6 +101,15 @@ fi
 [[ "$skip" == "-" ]] && skip=""
 [[ "$skip" != *$'\n'* ]] || { nz_warn "skip paths cannot hold a newline"; exit 2; }
 [[ -z "$rounds" || "$rounds" =~ ^[0-9]+$ ]] || { nz_warn "--max-rounds takes a number"; exit 2; }
+if [[ $set_auto -eq 1 ]]; then
+  case "$auto" in true|false) ;; *) nz_warn "--auto-continue takes true or false"; exit 2 ;; esac
+fi
+if [[ $set_verified -eq 1 ]]; then
+  case "$verified" in true|false) ;; *) nz_warn "--require-verified takes true or false"; exit 2 ;; esac
+fi
+if [[ $set_authors -eq 1 && -n "$authors" && "$authors" != "-" ]]; then
+  [[ "$authors" != *$'\n'* && "$authors" != *'#'* ]] || { nz_warn "reply authors cannot hold a newline or a hash"; exit 2; }
+fi
 
 [[ -f "$NZ_USER_CONFIG" ]] || {
   mkdir -p "$(dirname "$NZ_USER_CONFIG")" &&
@@ -98,6 +118,19 @@ fi
 nz_cfg_edit set "" repo "$repo" || { nz_warn "cannot write $NZ_USER_CONFIG"; exit 1; }
 if [[ -n "$skip" ]]; then nz_cfg_edit set "" skip_paths "$skip"; else nz_cfg_edit unset "" skip_paths; fi
 [[ $set_rounds -eq 1 && -n "$rounds" ]] && nz_cfg_edit set "" max_rounds "$rounds"
+if [[ $set_auto -eq 1 ]]; then
+  nz_cfg_edit set "" auto_continue "$auto" || { nz_warn "cannot write $NZ_USER_CONFIG"; exit 1; }
+fi
+if [[ $set_verified -eq 1 ]]; then
+  nz_cfg_edit set "" require_verified "$verified" || { nz_warn "cannot write $NZ_USER_CONFIG"; exit 1; }
+fi
+if [[ $set_authors -eq 1 ]]; then
+  if [[ -z "$authors" || "$authors" == "-" ]]; then
+    nz_cfg_edit unset "" reply_authors || { nz_warn "cannot write $NZ_USER_CONFIG"; exit 1; }
+  else
+    nz_cfg_edit set "" reply_authors "$authors" || { nz_warn "cannot write $NZ_USER_CONFIG"; exit 1; }
+  fi
+fi
 printf 'nazgul: wrote %s\n' "$NZ_USER_CONFIG"
 
 if command -v gh >/dev/null 2>&1; then
