@@ -28,6 +28,7 @@ Run commands from <the repo root>. <Name any directory a command must run from i
 - When a request has more than one reading, say which one you chose, and ask when the readings lead to different work.
 - Check the repo before stating a fact about it. Label what you could not check `[Unverified]` or `[Speculation]`.
 - Report which checks you ran and which you did not. When a check fails, find the cause before calling it pre-existing.
+- When you give the user a command, script, or file to run, put it in a fenced code block they can copy and paste whole: one block per shell or file, with no prompt characters (`$`, `>`) or output mixed in, and any value they must fill in called out right above the block. When a script changes, send the whole updated script again, not a diff or the changed lines.
 - End every plan with `Ask: <question>` or `Ask: none`.
 - Never revert or rewrite changes you did not make.
 - Write comments, commit messages, and PR descriptions in plain full sentences, for a reader who never saw this conversation.

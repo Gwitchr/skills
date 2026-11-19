@@ -23,7 +23,7 @@ Earns a line:
 
 - The commands, with their flags and the directory they run from, and the one command that counts as "checks pass" (usually what CI runs).
 - Commands that look right but are wrong here: bare `tsc` instead of the repo's typecheck script, a full production build, tests run from the wrong directory, tests that read a stale build.
-- Scope, verification, and reporting rules for the agent.
+- Scope, verification, and reporting rules for the agent, including how it hands over commands and scripts (whole, in copy-paste blocks).
 - Conventions that differ from what an agent writes by default, and bans on what it reaches for (type assertions, lint-disable comments).
 - Generated files and the command that regenerates each one.
 - Dependency direction between packages or layers, when breaking it compiles but is wrong.
