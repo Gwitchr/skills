@@ -7,7 +7,7 @@
 # thread with no reply costs about 10 minutes. --now checks once at once, with no wait.
 # It reads only projects/<project>/threads/<this session's thread>/ and only messages numbered
 # after this session's last report. A reply counts only when nz_reply_gate accepts the commit that
-# last wrote that file (allowlisted author, and verified unless require_verified is false). The
+# last wrote that file (allowlisted author, and verified when require_verified is true). The
 # file body is not read until the commit passes. A reply that fails is ignored, with a one-line
 # note on stderr, and is not treated as a reply. With no reply_authors, nothing is read and nothing
 # is acted on. A reply that passes needs frontmatter with
@@ -19,9 +19,15 @@
 # It prints nothing and exits 0 when there is no reply, no thread yet, no config, or the repo cannot
 # be reached (warned on stderr).
 set -u
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+# Find this script's folder. Some agent tools run commands in a bash that leaves BASH_SOURCE
+# empty, so fall back to $0, then to NAZGUL_SCRIPTS, then to the default skill location.
+nz_self="${BASH_SOURCE[0]:-}"; [[ -f "$nz_self" ]] || nz_self="$0"
+NZ_SCRIPTS="$(cd "$(dirname "$nz_self")" 2>/dev/null && pwd -P)"
+[[ -f "$NZ_SCRIPTS/lib.sh" ]] || NZ_SCRIPTS="${NAZGUL_SCRIPTS:-$HOME/.agents/skills/nazgul/scripts}"
+[[ -f "$NZ_SCRIPTS/lib.sh" ]] || { printf 'nazgul: cannot find the scripts folder; set NAZGUL_SCRIPTS or run with /bin/bash\n' >&2; exit 2; }
+. "$NZ_SCRIPTS/lib.sh"
 
-usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "$NZ_SCRIPTS/poll.sh" | sed 's/^# \{0,1\}//'; }
 
 agent="other"; session="${NAZGUL_SESSION:-}"; tries=""; interval=""; now=0; cwd="$PWD"; guard=""
 while [[ $# -gt 0 ]]; do

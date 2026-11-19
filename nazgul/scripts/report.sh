@@ -14,9 +14,15 @@
 #       reached (warned on stderr; a network or auth failure never breaks the session);
 #       2 bad arguments or a missing section; 3 a secret was found and nothing was pushed.
 set -u
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+# Find this script's folder. Some agent tools run commands in a bash that leaves BASH_SOURCE
+# empty, so fall back to $0, then to NAZGUL_SCRIPTS, then to the default skill location.
+nz_self="${BASH_SOURCE[0]:-}"; [[ -f "$nz_self" ]] || nz_self="$0"
+NZ_SCRIPTS="$(cd "$(dirname "$nz_self")" 2>/dev/null && pwd -P)"
+[[ -f "$NZ_SCRIPTS/lib.sh" ]] || NZ_SCRIPTS="${NAZGUL_SCRIPTS:-$HOME/.agents/skills/nazgul/scripts}"
+[[ -f "$NZ_SCRIPTS/lib.sh" ]] || { printf 'nazgul: cannot find the scripts folder; set NAZGUL_SCRIPTS or run with /bin/bash\n' >&2; exit 2; }
+. "$NZ_SCRIPTS/lib.sh"
 
-usage() { sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,16p' "$NZ_SCRIPTS/report.sh" | sed 's/^# \{0,1\}//'; }
 
 agent="other"; session="${NAZGUL_SESSION:-}"; summary=""; file=""; cwd="$PWD"
 while [[ $# -gt 0 ]]; do

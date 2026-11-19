@@ -12,8 +12,8 @@
 #                               Unset: no reply is acted on (the report is still pushed).
 #       auto_continue=true|false  default false. true: a continue reply is the agent's next
 #                               instructions. false: it is shown to the user and the session ends.
-#       require_verified=true|false  default true. false: an allowlisted author is enough, and the
-#                               commit does not have to be one GitHub reports as verified.
+#       require_verified=true|false  default false: an allowlisted author is enough. true: the
+#                               commit also has to be one GitHub reports as verified.
 #
 #       [project "/abs/path/to/repo.git"]   one section per enrolled repo, keyed by its git common dir
 #       slug=<slug>             optional; default: the repo name without .git
@@ -22,7 +22,8 @@
 # repo shares its git common dir, so one section covers all of them.
 # Local state lives in <git common dir>/nazgul/: never in a work tree, shared by every worktree.
 
-NZ_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# The calling script sets NZ_SCRIPTS before sourcing this file; BASH_SOURCE is the fallback.
+NZ_SCRIPTS="${NZ_SCRIPTS:-$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd -P)}"
 NZ_SKILL="$(dirname "$NZ_SCRIPTS")"
 NZ_USER_CONFIG="${NAZGUL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/nazgul/config}"
 NZ_SECTIONS="Changed|Why|Where|Left|Needs owner"
@@ -205,7 +206,7 @@ nz_load() {
   v="$(nz_cfg "" auto_continue)" || v=""
   if [[ "$v" == true ]]; then NZ_AUTO_CONTINUE=true; else NZ_AUTO_CONTINUE=false; fi
   v="$(nz_cfg "" require_verified)" || v=""
-  if [[ "$v" == false ]]; then NZ_REQUIRE_VERIFIED=false; else NZ_REQUIRE_VERIFIED=true; fi
+  if [[ "$v" == true ]]; then NZ_REQUIRE_VERIFIED=true; else NZ_REQUIRE_VERIFIED=false; fi
   nz_origin
   return 0
 }
@@ -311,7 +312,7 @@ nz_commit_meta() {
 
 # nz_reply_gate <path>: the newest commit on path may be acted on.
 # Success prints the author login. Failure prints a short reason and returns 1.
-# The author login has to be in reply_authors. When require_verified is not false, GitHub has to
+# The author login has to be in reply_authors. When require_verified is true, GitHub has to
 # report the commit verified, and the signature has to be that author's (committer login equals
 # the author) or GitHub's (committer login web-flow, the signature GitHub puts on a commit it
 # signs). Verification attests the committer, so a verified commit signed by someone else does

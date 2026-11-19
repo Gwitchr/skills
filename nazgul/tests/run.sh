@@ -176,6 +176,13 @@ plant unsigned-ok continue "Unsigned but allowlisted." responder false responder
 out="$(poll_session unsigned-ok)"
 ok "require_verified false accepts an allowlisted unsigned continue" '[[ "$(printf "%s" "$out" | jq -r .decision)" == block && "$(printf "%s" "$out" | jq -r .reason)" == *"Unsigned but allowlisted."* ]]'
 
+arm true responder false
+unsetcfg require_verified
+report_session unsigned-default
+plant unsigned-default continue "Unsigned, default config." responder false responder
+out="$(poll_session unsigned-default)"
+ok "require_verified unset (default) accepts an allowlisted unsigned continue" '[[ "$(printf "%s" "$out" | jq -r .decision)" == block && "$(printf "%s" "$out" | jq -r .reason)" == *"Unsigned, default config."* ]]'
+
 echo "background"
 arm false responder true
 inbox="$PC/nazgul/inbox/omp-show.md"

@@ -13,9 +13,15 @@
 # ~/.config/nazgul/config (mode 600); the [project] sections and any other line in it are kept.
 # Nothing is written inside a repo. --show prints the settings and whether nazgul is on in --cwd.
 set -u
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+# Find this script's folder. Some agent tools run commands in a bash that leaves BASH_SOURCE
+# empty, so fall back to $0, then to NAZGUL_SCRIPTS, then to the default skill location.
+nz_self="${BASH_SOURCE[0]:-}"; [[ -f "$nz_self" ]] || nz_self="$0"
+NZ_SCRIPTS="$(cd "$(dirname "$nz_self")" 2>/dev/null && pwd -P)"
+[[ -f "$NZ_SCRIPTS/lib.sh" ]] || NZ_SCRIPTS="${NAZGUL_SCRIPTS:-$HOME/.agents/skills/nazgul/scripts}"
+[[ -f "$NZ_SCRIPTS/lib.sh" ]] || { printf 'nazgul: cannot find the scripts folder; set NAZGUL_SCRIPTS or run with /bin/bash\n' >&2; exit 2; }
+. "$NZ_SCRIPTS/lib.sh"
 
-usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,14p' "$NZ_SCRIPTS/config.sh" | sed 's/^# \{0,1\}//'; }
 
 repo=""; skip=""; rounds=""; authors=""; auto=""; verified=""; cwd="$PWD"; show=0
 set_repo=0; set_skip=0; set_rounds=0; set_authors=0; set_auto=0; set_verified=0
@@ -45,7 +51,7 @@ if [[ $show -eq 1 ]]; then
   printf 'skip paths:    %s\n' "$(nz_cfg "" skip_paths)"
   printf 'auto continue: %s\n' "$([[ "$(nz_cfg "" auto_continue)" == true ]] && printf true || printf false)"
   printf 'reply authors: %s\n' "$(nz_cfg "" reply_authors)"
-  printf 'require verified: %s\n' "$([[ "$(nz_cfg "" require_verified)" == false ]] && printf false || printf true)"
+  printf 'require verified: %s\n' "$([[ "$(nz_cfg "" require_verified)" == true ]] && printf true || printf false)"
   printf 'enrolled:\n'
   n=0
   while IFS= read -r p; do

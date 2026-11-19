@@ -20,7 +20,7 @@ TRIGGER when: the user wants agent sessions reported to a repo, wants to answer 
 The agent runs these steps. Each one is safe to repeat.
 
 1. Keep the skill outside every repo, for example at `~/.agents/skills/nazgul/`. Tools that read `~/.agents/skills` find it there; Claude Code reads `~/.claude/skills`, so link it: `ln -s ~/.agents/skills/nazgul ~/.claude/skills/nazgul`. `install.sh` refuses a skill that sits inside a work tree of the repo it enrolls.
-2. Ask the user which repo receives the reports (`owner/repo`) and which GitHub logins may answer (`reply_authors`). Leave `auto_continue` off unless they ask for a continue reply to steer the agent. Then run `bash <skill>/scripts/config.sh --repo <owner/repo> --reply-authors <login>,<login>`. Add `--auto-continue true` only when they want that. Add `--require-verified false` only when they accept the tradeoff in Security. From a terminal, `config.sh` with no flags asks for the repo and the skip paths; the reply settings change only when their flags are passed. It writes only `~/.config/nazgul/config` (mode 600). Add `--skip-paths <dir:dir>` for folders where nazgul must do nothing.
+2. Ask the user which repo receives the reports (`owner/repo`) and which GitHub logins may answer (`reply_authors`). Leave `auto_continue` off unless they ask for a continue reply to steer the agent. Then run `bash <skill>/scripts/config.sh --repo <owner/repo> --reply-authors <login>,<login>`. Add `--auto-continue true` only when they want that. Add `--require-verified true` only when replies come from signed commits (see Security); replies pushed with a personal token are unsigned and would be ignored. From a terminal, `config.sh` with no flags asks for the repo and the skip paths; the reply settings change only when their flags are passed. It writes only `~/.config/nazgul/config` (mode 600). Add `--skip-paths <dir:dir>` for folders where nazgul must do nothing.
 3. From any worktree of the repo, or from a bare repo itself, run `bash <skill>/scripts/install.sh --enroll`. Ask the user for a project slug first when the repo name is not what they want under `projects/`, and pass it as `--slug <slug>`. It adds the repo to the config, writes the user-level hooks below, and prints the trust steps.
 4. Tell the user the trust steps it printed. Codex runs a new hook only after the user trusts it; Grok runs user hooks only in folders the user trusts.
 5. Check with `bash <skill>/scripts/config.sh --show`. It lists the enrolled repos, and its last lines say whether nazgul is on in this folder and why not.
@@ -106,7 +106,7 @@ Add a load test for the new limit, then report again.
 A reply counts only when the newest commit that touches that file passes both of these, checked with `gh api repos/<owner>/<repo>/commits?path=<file>`:
 
 - `author.login` is one of `reply_authors` (case-insensitive). With no `reply_authors`, no reply is acted on. The report is still pushed.
-- GitHub reports the commit verified (`commit.verification.verified` is true), unless `require_verified` is `false`. Verification attests the committer, so the committer login also has to be that same author, or `web-flow` when GitHub signed the commit. A verified commit signed by someone else is ignored.
+- When `require_verified` is `true`, GitHub reports the commit verified (`commit.verification.verified` is true). Verification attests the committer, so the committer login also has to be that same author, or `web-flow` when GitHub signed the commit. A verified commit signed by someone else is ignored.
 
 The file body is read only after the commit passes. Anything else is ignored, with a one-line note, and is not a reply.
 
@@ -154,7 +154,7 @@ repo=<owner>/<repo>
 skip_paths=<dir>:<dir>
 reply_authors=<login>,<login>
 auto_continue=false
-require_verified=true
+require_verified=false
 
 [project "/abs/path/to/<name>.git"]
 slug=<slug>        # optional; default: the repo name without .git
@@ -166,7 +166,7 @@ slug=<slug>        # optional; default: the repo name without .git
 | `skip_paths` | top | empty | Colon-separated folders where nazgul does nothing, enrolled or not |
 | `reply_authors` | top | empty | Comma-separated GitHub logins. A reply counts only when the commit that last wrote it has one of these as `author.login`. Empty: no reply is acted on. |
 | `auto_continue` | top | false | `true`: a continue reply is the agent's next instructions. Any other value, including unset: the reply is shown to the user and the session ends. |
-| `require_verified` | top | true | `false`: skip the verification check and accept an allowlisted author on an unsigned commit. See Security for what that gives up. Any other value: the commit has to be verified. |
+| `require_verified` | top | false | `true`: the commit also has to be verified, with the signature belonging to the author or `web-flow`. Use it only when replies come from signed commits. Any other value: an allowlisted author on an unsigned commit is accepted. See Security. |
 | `max_rounds` | top or project | 3 | Continue rounds per session when `auto_continue` is on; the project value wins |
 | `poll_tries` | top | 5 | Checks per wait |
 | `poll_interval` | top | 120 | Seconds before each check |
@@ -180,6 +180,7 @@ slug=<slug>        # optional; default: the repo name without .git
 | `NAZGUL_POLL_TRIES`, `NAZGUL_POLL_INTERVAL` | Override the poll settings |
 | `NAZGUL_SESSION` | Session id for `report.sh` and `poll.sh` when `--session` is not given |
 | `NAZGUL_AGENT` | Marks a process as an agent for the commit-msg backstop |
+| `NAZGUL_SCRIPTS` | Path of the `scripts` folder, for agent shells where a script cannot find its own folder (default `~/.agents/skills/nazgul/scripts`) |
 
 Local state lives in `<common>/nazgul/sessions/<session>.*` (thread, last message number, rounds, pending ask). It is inside the git dir, so it is never committed, and every worktree of the repo shares it. Delete a session's files to give it a new thread.
 
@@ -187,7 +188,7 @@ Local state lives in `<common>/nazgul/sessions/<session>.*` (thread, last messag
 
 What leaves the machine. The report (the one-line summary and the five sections) is pushed to the report repo named in the user config, through `gh` and the contents API. The hook payload, the config, and the session state under `<common>/nazgul/` stay on the machine. nazgul does not clone the report repo and does not put a token in a URL.
 
-Who can reply. Anyone who can push to that repo can add a file. nazgul acts on it only when `reply_authors` lists the GitHub login on the commit that last wrote the file, and (by default) GitHub reports that commit verified, with the signature belonging to that login or to GitHub (`web-flow`). The `from:` line is not a check. With no `reply_authors`, the report is still pushed and no reply is read or acted on.
+Who can reply. Anyone who can push to that repo can add a file. nazgul acts on it only when `reply_authors` lists the GitHub login on the commit that last wrote the file, and, when `require_verified` is `true`, GitHub reports that commit verified, with the signature belonging to that login or to GitHub (`web-flow`). The `from:` line is not a check. With no `reply_authors`, the report is still pushed and no reply is read or acted on.
 
 `auto_continue` is off by default. A continue reply is shown to the user and the session ends. It is the agent's next instructions only when `auto_continue` is `true`.
 
@@ -195,7 +196,7 @@ Hooks. The Stop hooks and the Oh My Pi handler are user-level, so they load in e
 
 Unenroll. From the repo, `bash <skill>/scripts/install.sh --unenroll` removes its `[project]` section, the commit-msg backstop, and `<common>/nazgul/`. When that was the last enrolled repo, it removes the user-level hooks too.
 
-Personal tokens and verification. A file created with `PUT /repos/{owner}/{repo}/contents/{path}` by a personal access token (or the user token `gh auth token` returns) is not a verified commit. The commits API reports `verification.verified` false and `verification.reason` `unsigned`, and `author.login` is the token's user. GitHub signs commits made in the web UI, and it signs a contents-API commit made by a GitHub App. It does not sign one made with a user's personal token, because it does not hold that user's signing key. With `require_verified` left at its default, those replies are ignored. Set `require_verified=false` to accept an unsigned commit whose author login is allowlisted. What that gives up: the login comes from the author email GitHub associated with the commit, and anyone who can push to the report repo can set that email, so the allowlist no longer shows who pushed the reply.
+Personal tokens and verification. A file created with `PUT /repos/{owner}/{repo}/contents/{path}` by a personal access token (or the user token `gh auth token` returns) is not a verified commit. The commits API reports `verification.verified` false and `verification.reason` `unsigned`, and `author.login` is the token's user. GitHub signs commits made in the web UI, and it signs a contents-API commit made by a GitHub App. It does not sign one made with a user's personal token, because it does not hold that user's signing key. Most agents reply this way, so `require_verified` is off by default and an unsigned commit whose author login is allowlisted is accepted. Turn it on only when every reply comes from a signed commit (the web UI, a GitHub App, or a signing key on the replier's side); with it on, personal-token replies are ignored. What the default gives up: the login comes from the author email GitHub associated with the commit, and anyone who can push to the report repo can set that email, so the allowlist no longer shows who pushed the reply.
 
 ## Tools
 
