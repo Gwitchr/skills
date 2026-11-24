@@ -22,6 +22,8 @@ bash ~/.agents/skills/nazgul/scripts/install.sh --enroll   # per repo: enrolls i
 
 `auto_continue` stays off unless you pass `--auto-continue true`. `require_verified` stays off unless you pass `--require-verified true`. Turn it on only when replies come from signed commits; a contents-API commit made with a personal token is unsigned, so with it on those replies are ignored (see SKILL.md). `config.sh` with no flags asks for the report repo.
 
+Spoken notifications are off by default. On macOS, run `bash ~/.agents/skills/nazgul/scripts/config.sh --speak true` to announce each successfully posted report and accepted reply with `say`. The announcements use fixed text, not the report or reply contents. Turn them off with `--speak false`; on other operating systems they remain silent. `config.sh --show` displays the setting.
+
 `install.sh` writes user-level hooks for each tool you have (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.grok/hooks/nazgul.json`, `~/.omp/agent/hooks/post/nazgul.ts`) and a commit-msg backstop into the repo's git dir. The hooks run everywhere but do nothing outside enrolled repos. Then trust the hooks where the tool asks: in Codex, run `/hooks` and press `t` (or choose "Trust all and continue"); in Grok, accept the folder trust prompt or run `/hooks-trust` in each worktree. Claude Code and Oh My Pi load the hooks at the next session start.
 
 `install.sh --unenroll` puts the repo back exactly as it was; after the last repo it removes the user-level hooks too. `config.sh --show` lists the enrolled repos.

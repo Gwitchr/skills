@@ -4,7 +4,7 @@
 #
 #   config.sh [--repo <owner/repo>] [--skip-paths <dir:dir>] [--max-rounds N]
 #             [--auto-continue true|false] [--reply-authors <logins>]
-#             [--require-verified true|false]
+#             [--require-verified true|false] [--speak true|false]
 #   config.sh --show [--cwd <dir>]
 #
 # From a terminal it asks for the report repo and the skip paths when those flags are absent.
@@ -23,13 +23,13 @@ NZ_SCRIPTS="$(cd "$(dirname "$nz_self")" 2>/dev/null && pwd -P)"
 
 usage() { sed -n '2,14p' "$NZ_SCRIPTS/config.sh" | sed 's/^# \{0,1\}//'; }
 
-repo=""; skip=""; rounds=""; authors=""; auto=""; verified=""; cwd="$PWD"; show=0
-set_repo=0; set_skip=0; set_rounds=0; set_authors=0; set_auto=0; set_verified=0
+repo=""; skip=""; rounds=""; authors=""; auto=""; verified=""; speak=""; cwd="$PWD"; show=0
+set_repo=0; set_skip=0; set_rounds=0; set_authors=0; set_auto=0; set_verified=0; set_speak=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help) usage; exit 0 ;;
     --show) show=1; shift ;;
-    --repo|--skip-paths|--max-rounds|--auto-continue|--reply-authors|--require-verified|--cwd)
+    --repo|--skip-paths|--max-rounds|--auto-continue|--reply-authors|--require-verified|--speak|--cwd)
       [[ $# -ge 2 ]] || { nz_warn "$1 needs a value"; exit 2; }
       case "$1" in
         --repo) repo="$2"; set_repo=1 ;;
@@ -38,6 +38,7 @@ while [[ $# -gt 0 ]]; do
         --auto-continue) auto="$2"; set_auto=1 ;;
         --reply-authors) authors="$2"; set_authors=1 ;;
         --require-verified) verified="$2"; set_verified=1 ;;
+        --speak) speak="$2"; set_speak=1 ;;
         --cwd) cwd="$2" ;;
       esac
       shift 2 ;;
@@ -52,6 +53,7 @@ if [[ $show -eq 1 ]]; then
   printf 'auto continue: %s\n' "$([[ "$(nz_cfg "" auto_continue)" == true ]] && printf true || printf false)"
   printf 'reply authors: %s\n' "$(nz_cfg "" reply_authors)"
   printf 'require verified: %s\n' "$([[ "$(nz_cfg "" require_verified)" == true ]] && printf true || printf false)"
+  printf 'speak:         %s\n' "$([[ "$(nz_cfg "" speak)" == true ]] && printf true || printf false)"
   printf 'enrolled:\n'
   n=0
   while IFS= read -r p; do
@@ -113,6 +115,9 @@ fi
 if [[ $set_verified -eq 1 ]]; then
   case "$verified" in true|false) ;; *) nz_warn "--require-verified takes true or false"; exit 2 ;; esac
 fi
+if [[ $set_speak -eq 1 ]]; then
+  case "$speak" in true|false) ;; *) nz_warn "--speak takes true or false"; exit 2 ;; esac
+fi
 if [[ $set_authors -eq 1 && -n "$authors" && "$authors" != "-" ]]; then
   [[ "$authors" != *$'\n'* && "$authors" != *'#'* ]] || { nz_warn "reply authors cannot hold a newline or a hash"; exit 2; }
 fi
@@ -129,6 +134,9 @@ if [[ $set_auto -eq 1 ]]; then
 fi
 if [[ $set_verified -eq 1 ]]; then
   nz_cfg_edit set "" require_verified "$verified" || { nz_warn "cannot write $NZ_USER_CONFIG"; exit 1; }
+fi
+if [[ $set_speak -eq 1 ]]; then
+  nz_cfg_edit set "" speak "$speak" || { nz_warn "cannot write $NZ_USER_CONFIG"; exit 1; }
 fi
 if [[ $set_authors -eq 1 ]]; then
   if [[ -z "$authors" || "$authors" == "-" ]]; then

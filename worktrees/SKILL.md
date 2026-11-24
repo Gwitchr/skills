@@ -17,9 +17,13 @@ TRIGGER when: the user asks about the state of their worktrees, wants an invento
 
 ## Setting up a repo
 
-No installer script exists. The agent performs these steps directly, each one idempotent, so running them again on an already-set-up repo changes nothing:
+No installer script exists. The agent performs these steps directly; repeating setup preserves existing configuration and files, while fetching any new remote updates:
 
 1. Verify the target: run `git worktree list` in `<root>` and confirm it shows the bare record plus at least one linked worktree.
+   Configure remote tracking before installing the files, using the project's configured remote (normally `origin`):
+   - Inspect all `remote.origin.fetch` values with `git config --get-all remote.origin.fetch`. If there are none, add the standard mapping with `git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'`. A bare clone normally has local copies of the remote branches but no mapping to keep `origin/*` refs up to date. If fetch refspecs already exist, preserve them; if they do not cover the needed branches, report the restricted or custom setup rather than silently changing it.
+   - Run `git fetch origin`, determine the default branch from `refs/remotes/origin/HEAD` (setting it with `git remote set-head origin --auto` if necessary), and verify `refs/remotes/origin/<default>` exists. If fetching fails or the remote or default branch cannot be resolved, report that and skip the remaining tracking steps; continue the unrelated setup without guessing.
+   - If the local default branch exists and has no upstream configured, run `git branch --set-upstream-to=origin/<default> <default>`. Preserve any existing or partially configured upstream; report a partial or invalid configuration rather than replacing it. Do not change the upstream of other local branches automatically. When an existing branch such as `branch-x` needs tracking, use `git branch --set-upstream-to=origin/branch-x branch-x` after verifying the remote ref exists.
 2. Copy this skill's `assets/warm-worktrees.sh` and `assets/inventory-worktrees.sh` into `<root>` and set both to `chmod 755`. When a file of that name already exists there and differs from the copy this skill ships, show the user a diff summary and ask before replacing it. Never overwrite silently.
 3. Seed `<root>/.worktree-copy` from `assets/worktree-copy.template` when `<root>` has no such file yet. Never edit an existing `.worktree-copy` without asking first: treat it as append-only, and never rewrite a line the user wrote by hand.
 4. Append the block below to `<root>/info/exclude` (a git-ignore file that lives inside the repo's internals and is shared by every worktree, so it is never committed) when its markers are not already present. Never duplicate the block; if the markers are already there, leave the file alone.
@@ -32,7 +36,9 @@ No installer script exists. The agent performs these steps directly, each one id
 ```
 
 5. Shared Claude Code hooks, optional. When the owner uses the `agent-workflow-notifier` skill (a sibling of this one), `<root>/.claude/settings.local.json` holds the hook block every worktree gets, and the manifest line `.claude/settings.local.json merge-json` makes `warm-worktrees.sh` deep-merge it into each worktree's own `.claude/settings.local.json` (objects merge key by key, arrays union, so a worktree's permission list survives). That skill owns the hook block, the script it runs, and the Slack app; this step only appends the manifest line when it is absent and runs `./warm-worktrees.sh` once the root file exists. Never edit an existing root settings file without asking.
-6. For a brand-new project, start here instead of step 1: run `git clone --bare <url> <dir>`, set `remote.origin.fetch` to `+refs/heads/*:refs/remotes/origin/*`, run `git fetch`, then `git remote set-head origin --auto`. Resolve the default branch from the now-set `refs/remotes/origin/HEAD` and add its worktree (`git worktree add <default> <default>`, run from `<dir>`). Continue into steps 2 through 5 against the new root.
+6. For a brand-new project, run `git clone --bare <url> <dir>`, then perform the remote-tracking checks in step 1 from `<dir>`. Resolve the default branch from `refs/remotes/origin/HEAD` and add its worktree (`git worktree add <default> <default>`). Verify the bare record and worktree as in step 1, then continue through steps 2 to 5.
+
+`git pull branch-x` treats `branch-x` as a remote, not a branch on `origin`. `git pull origin branch-x` integrates that remote branch into the current branch; to work on it independently, create or use its own worktree instead.
 
 ## Day-to-day: inventory first, removal second
 

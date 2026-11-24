@@ -136,6 +136,7 @@ while [[ $attempt -lt 8 ]]; do
       nz_sput branch "$NZ_BRANCH"
       nz_sput last "$n"
       nz_sput reported "$(date +%s)"
+      nz_speak "Nazgul report posted."
       printf 'nazgul: pushed %s\n' "$path"
       printf 'nazgul: https://github.com/%s/blob/HEAD/%s\n' "$NZ_REPO" "$path"
       exit 0 ;;

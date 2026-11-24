@@ -11,7 +11,9 @@ Setup puts four things at the bare clone root, `<root>`:
 - `.worktree-copy`, seeded from `assets/worktree-copy.template` if `<root>` has none yet.
 - A managed block appended to `<root>/info/exclude` (git's own shared ignore file for every worktree in the clone), if its markers are not already there.
 
-Setup never overwrites a script that already exists and differs without asking first, and never edits an existing `.worktree-copy` without asking. For a brand-new project, cloning comes first: `git clone --bare <url> <dir>`, set `remote.origin.fetch` to `+refs/heads/*:refs/remotes/origin/*`, `git fetch`, `git remote set-head origin --auto`, then add the default-branch worktree before installing the rest.
+Setup never overwrites a script that already exists and differs without asking first, and never edits an existing `.worktree-copy` without asking. For new and existing bare clones, setup also checks the remote's fetch refspec, adds `+refs/heads/*:refs/remotes/origin/*` when no refspec exists, fetches, and sets the local default branch's upstream if none is configured. Existing custom refspecs and upstreams are preserved; setup reports configurations that need attention. For a brand-new project, cloning comes first with `git clone --bare <url> <dir>`, followed by the remote-tracking setup and creation of the default-branch worktree.
+
+A bare clone normally copies remote branches into local branches without setting up `origin/*` tracking refs. Fetching with the mapping above creates and updates those refs; local branches are not automatically updated. For an existing local feature branch, set its upstream separately with `git branch --set-upstream-to=origin/branch-x branch-x` after fetching. `git pull origin branch-x` integrates that branch into the current branch; to work on it independently, use its own worktree.
 
 ## Requirements
 

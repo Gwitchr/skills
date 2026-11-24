@@ -98,11 +98,48 @@ out="$(pl s9 false Done. "$T/skipme/proj" | check --agent claude)"; rc=$?
 ok "skip path does nothing" '[[ $rc -eq 0 && -z "$out" && ! -s "$T/err" ]]'
 
 echo "report"
-secret="ghp_$(printf 'a%.0s' {1..36})"
+secret="ghp_$(printf '%s' 'A1b2C3d4E5f6G7h8J9k0LmNpQrStUvWxYz12')"
 out="$(cd "$P" && body | sed "s/Added a widget./Added a widget. $secret/" | bash "$S/report.sh" --agent claude --session secret 2>&1)"; rc=$?
 ok "secret scan blocks a push" '[[ $rc -eq 3 && "$out" == *"refusing to push"* && "$out" != *"$secret"* && ! -f "$PC/nazgul/sessions/secret.thread" ]]'
 out="$(cd "$P" && body | bash "$S/report.sh" --agent claude --session pushed --summary "Added the widget" 2>&1)"; rc=$?
 ok "report gets pushed" '[[ $rc -eq 0 && "$out" == *"pushed projects/widget/threads/"*"/001_claude.md"* ]] && grep -q "nazgul(widget): Added the widget" "$FAKE_GH_ROOT/commits.log"'
+
+echo "spoken notifications"
+mkdir -p "$T/speech-bin"
+cat >"$T/speech-bin/uname" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "${NAZGUL_TEST_OS:-Darwin}"
+EOF
+cat >"$T/speech-bin/say" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$NAZGUL_TEST_SAY_LOG"
+EOF
+chmod +x "$T/speech-bin/uname" "$T/speech-bin/say"
+export NAZGUL_TEST_SAY_LOG="$T/speech.log"
+export PATH="$T/speech-bin:$PATH"
+out="$(bash "$S/config.sh" --show)"
+ok "speech defaults to off" '[[ "$out" == *"speak:         false"* ]]'
+report_session silent-default
+ok "default does not speak" '[[ ! -s "$NAZGUL_TEST_SAY_LOG" ]]'
+out="$(bash "$S/config.sh" --speak invalid </dev/null 2>&1)"; rc=$?
+ok "speech flag rejects invalid values" '[[ $rc -eq 2 && "$out" == *"--speak takes true or false"* ]]'
+bash "$S/config.sh" --speak true </dev/null >/dev/null 2>&1
+report_session speech-report
+for _ in 1 2 3 4 5 6 7 8 9 10; do [[ -s "$NAZGUL_TEST_SAY_LOG" ]] && break; sleep 0.1; done
+ok "successful report speaks when enabled" '[[ "$(cat "$NAZGUL_TEST_SAY_LOG")" == "Nazgul report posted." ]]'
+arm false responder true
+plant speech-report wait-for-owner "Private reply text."
+out="$(poll_session speech-report)"
+for _ in 1 2 3 4 5 6 7 8 9 10; do [[ "$(wc -l <"$NAZGUL_TEST_SAY_LOG")" -ge 2 ]] && break; sleep 0.1; done
+ok "accepted reply speaks fixed text" '[[ "$(tail -n 1 "$NAZGUL_TEST_SAY_LOG")" == "Nazgul received a reply." && "$(cat "$NAZGUL_TEST_SAY_LOG")" != *"Private reply text"* ]]'
+export NAZGUL_TEST_OS=Linux
+report_session silent-linux
+ok "enabled speech is silent outside macOS" '[[ "$(wc -l <"$NAZGUL_TEST_SAY_LOG")" -eq 2 ]]'
+unset NAZGUL_TEST_OS
+bash "$S/config.sh" --speak false </dev/null >/dev/null 2>&1
+report_session silent-disabled
+ok "speech can be disabled" '[[ "$(wc -l <"$NAZGUL_TEST_SAY_LOG")" -eq 2 ]]'
+PATH="${PATH#"$T/speech-bin:"}"; export PATH
 
 echo "replies"
 arm true - true

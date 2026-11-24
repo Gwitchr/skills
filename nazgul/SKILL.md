@@ -20,7 +20,7 @@ TRIGGER when: the user wants agent sessions reported to a repo, wants to answer 
 The agent runs these steps. Each one is safe to repeat.
 
 1. Keep the skill outside every repo, for example at `~/.agents/skills/nazgul/`. Tools that read `~/.agents/skills` find it there; Claude Code reads `~/.claude/skills`, so link it: `ln -s ~/.agents/skills/nazgul ~/.claude/skills/nazgul`. `install.sh` refuses a skill that sits inside a work tree of the repo it enrolls.
-2. Ask the user which repo receives the reports (`owner/repo`) and which GitHub logins may answer (`reply_authors`). Leave `auto_continue` off unless they ask for a continue reply to steer the agent. Then run `bash <skill>/scripts/config.sh --repo <owner/repo> --reply-authors <login>,<login>`. Add `--auto-continue true` only when they want that. Add `--require-verified true` only when replies come from signed commits (see Security); replies pushed with a personal token are unsigned and would be ignored. From a terminal, `config.sh` with no flags asks for the repo and the skip paths; the reply settings change only when their flags are passed. It writes only `~/.config/nazgul/config` (mode 600). Add `--skip-paths <dir:dir>` for folders where nazgul must do nothing.
+2. Ask the user which repo receives the reports (`owner/repo`) and which GitHub logins may answer (`reply_authors`). Leave `auto_continue` off unless they ask for a continue reply to steer the agent. Then run `bash <skill>/scripts/config.sh --repo <owner/repo> --reply-authors <login>,<login>`. Add `--auto-continue true` only when they want that. Add `--require-verified true` only when replies come from signed commits (see Security); replies pushed with a personal token are unsigned and would be ignored. Add `--speak true` only when the user opts in to spoken notifications on macOS. From a terminal, `config.sh` with no flags asks for the repo and the skip paths; the reply and speech settings change only when their flags are passed. It writes only `~/.config/nazgul/config` (mode 600). Add `--skip-paths <dir:dir>` for folders where nazgul must do nothing.
 3. From any worktree of the repo, or from a bare repo itself, run `bash <skill>/scripts/install.sh --enroll`. Ask the user for a project slug first when the repo name is not what they want under `projects/`, and pass it as `--slug <slug>`. It adds the repo to the config, writes the user-level hooks below, and prints the trust steps.
 4. Tell the user the trust steps it printed. Codex runs a new hook only after the user trusts it; Grok runs user hooks only in folders the user trusts.
 5. Check with `bash <skill>/scripts/config.sh --show`. It lists the enrolled repos, and its last lines say whether nazgul is on in this folder and why not.
@@ -155,6 +155,7 @@ skip_paths=<dir>:<dir>
 reply_authors=<login>,<login>
 auto_continue=false
 require_verified=false
+speak=false
 
 [project "/abs/path/to/<name>.git"]
 slug=<slug>        # optional; default: the repo name without .git
@@ -167,6 +168,7 @@ slug=<slug>        # optional; default: the repo name without .git
 | `reply_authors` | top | empty | Comma-separated GitHub logins. A reply counts only when the commit that last wrote it has one of these as `author.login`. Empty: no reply is acted on. |
 | `auto_continue` | top | false | `true`: a continue reply is the agent's next instructions. Any other value, including unset: the reply is shown to the user and the session ends. |
 | `require_verified` | top | false | `true`: the commit also has to be verified, with the signature belonging to the author or `web-flow`. Use it only when replies come from signed commits. Any other value: an allowlisted author on an unsigned commit is accepted. See Security. |
+| `speak` | top | false | `true`: on macOS, use `say` to announce a successfully posted report and an accepted reply. Alerts use fixed text and run in the background; they never read report or reply content aloud. Enable with `config.sh --speak true`, disable with `config.sh --speak false`. Other systems remain silent. |
 | `max_rounds` | top or project | 3 | Continue rounds per session when `auto_continue` is on; the project value wins |
 | `poll_tries` | top | 5 | Checks per wait |
 | `poll_interval` | top | 120 | Seconds before each check |

@@ -14,6 +14,7 @@
 #                               instructions. false: it is shown to the user and the session ends.
 #       require_verified=true|false  default false: an allowlisted author is enough. true: the
 #                               commit also has to be one GitHub reports as verified.
+#       speak=true|false         default false; speak report and reply alerts on macOS.
 #
 #       [project "/abs/path/to/repo.git"]   one section per enrolled repo, keyed by its git common dir
 #       slug=<slug>             optional; default: the repo name without .git
@@ -30,6 +31,15 @@ NZ_SECTIONS="Changed|Why|Where|Left|Needs owner"
 NZ_ERR=""
 
 nz_warn() { printf 'nazgul: %s\n' "$*" >&2; }
+
+# A fixed, non-sensitive alert; never hold up a report or hook if speech fails.
+nz_speak() {
+  [[ "$(nz_cfg "" speak)" == true ]] || return 0
+  [[ "$(uname -s 2>/dev/null)" == Darwin ]] || return 0
+  command -v say >/dev/null 2>&1 || return 0
+  say "$1" </dev/null >/dev/null 2>&1 &
+  return 0
+}
 
 # The awk below reads section headers: [project "<path>"] gives <path>; any other [header] gives \001,
 # which matches no section anyone asks for. Lines before the first header are the top level ("").

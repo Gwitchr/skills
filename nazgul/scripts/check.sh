@@ -249,6 +249,9 @@ rget() { printf '%s' "$reply" | jq -r ".$1 // empty"; }
 action="$(rget action)"; from="$(rget from)"; body="$(rget body)"
 rnum="$(printf '%03d' "$(nz_num "$(rget number)" 0)")"
 case "$action" in
+  continue|stop|wait-for-owner) nz_speak "Nazgul received a reply." ;;
+esac
+case "$action" in
   continue)
     if [[ "$NZ_AUTO_CONTINUE" == true ]]; then
       rounds=$((rounds + 1)); nz_sput rounds "$rounds"
